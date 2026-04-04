@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f1f3f6; }
+
+.box {
+    background:white;
+    border-radius:12px;
+    padding:20px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.08);
+}
+
+.payment-option {
+    border:1px solid #ddd;
+    padding:15px;
+    border-radius:10px;
+    cursor:pointer;
+    margin-bottom:10px;
+}
+.payment-option.active {
+    border-color:#198754;
+    background:#e9f7ef;
+}
+
+.hidden { display:none; }
+.summary-box { position:sticky; top:20px; }
+
+.price-line {
+    display:flex;
+    justify-content:space-between;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-4">
+<div class="row">
+
+<!-- LEFT -->
+<div class="col-md-8">
+
+<div class="box mb-3">
+<h5>Select Payment Method</h5>
+
+<div class="payment-option" onclick="selectMethod('UPI', this)">📱 UPI</div>
+<div class="payment-option" onclick="selectMethod('CARD', this)">💳 Card</div>
+<div class="payment-option" onclick="selectMethod('QR', this)">🔳 QR</div>
+<div class="payment-option" onclick="selectMethod('COD', this)">💵 COD</div>
+
+</div>
+
+<div class="box hidden" id="detailsBox">
+
+<div id="upiBox" class="hidden">
+<input id="upi" class="form-control mb-2" placeholder="UPI ID">
+</div>
+
+<div id="cardBox" class="hidden">
+<input id="cardNo" class="form-control mb-2" placeholder="Card Number">
+<input id="cardName" class="form-control mb-2" placeholder="Name">
+<input id="cvv" type="password" class="form-control mb-2" placeholder="CVV">
+</div>
+
+<div id="qrBox" class="hidden text-center">
+<img src="static/qr.png" width="150">
+<p>Scan & Pay</p>
+</div>
+
+<button onclick="payNow()" class="btn btn-success w-100 mt-3">Pay Now</button>
+
+</div>
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-4">
+<div class="box summary-box">
+
+<h6>PRICE DETAILS</h6>
+<hr>
+
+<div class="price-line">
+<span>Total</span>
+<span>₹<span id="total">0</span></span>
+</div>
+
+<div class="price-line text-success">
+<span>Discount</span>
+<span>- ₹<span id="discountAmt">0</span></span>
+</div>
+
+<hr>
+
+<div class="price-line fw-bold">
+<span>Final</span>
+<span>₹<span id="final">0</span></span>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+
+if(!token){
+    alert("Login required ❌");
+    location.href="login.html";
+}
+
+let total = 0;
+
+// ✅ FIXED HERE
+let discountPercent = parseFloat(localStorage.getItem("discountPercent"));
+if(isNaN(discountPercent)) discountPercent = 0;
+
+let selectedMethod = "";
+
+// LOAD CART
+async function loadTotal(){
+    try{
+        const res = await fetch(API_URL + "/cart", {
+            headers:{ Authorization:"Bearer "+token }
+        });
+
+        const cart = await res.json();
+
+        total = 0;
+        cart.forEach(i => {
+            total += (Number(i.price)||0) * (Number(i.quantity)||1);
+        });
+
+        updateSummary();
+
+    }catch(err){
+        console.error(err);
+        alert("Cart load error ❌");
+    }
+}
+loadTotal();
+
+// UPDATE SUMMARY
+function updateSummary(){
+    const discountAmt = (total * discountPercent)/100;
+    const final = Math.max(total - discountAmt, 0);
+
+    document.getElementById("total").innerText = total.toFixed(2);
+    document.getElementById("discountAmt").innerText = discountAmt.toFixed(2);
+    document.getElementById("final").innerText = final.toFixed(2);
+}
+
+// SELECT METHOD
+function selectMethod(method, el){
+    selectedMethod = method;
+
+    document.querySelectorAll(".payment-option")
+        .forEach(b=>b.classList.remove("active"));
+
+    el.classList.add("active");
+
+    document.getElementById("detailsBox").classList.remove("hidden");
+
+    ["upiBox","cardBox","qrBox"].forEach(id =>
+        document.getElementById(id).classList.add("hidden")
+    );
+
+    if(method==="UPI") upiBox.classList.remove("hidden");
+    if(method==="CARD") cardBox.classList.remove("hidden");
+    if(method==="QR") qrBox.classList.remove("hidden");
+}
+
+// PAY
+function payNow(){
+
+    if(!selectedMethod){
+        alert("Select payment ❌");
+        return;
+    }
+
+    if(selectedMethod==="UPI" && !upi.value.trim()){
+        alert("Enter UPI ❌"); return;
+    }
+
+    if(selectedMethod==="CARD"){
+        if(!cardNo.value.trim() || !cardName.value.trim() || !cvv.value.trim()){
+            alert("Fill card ❌"); return;
+        }
+    }
+
+    alert("Processing...");
+    setTimeout(saveOrder, 500);
+}
+
+// SAVE ORDER
+async function saveOrder(){
+    try{
+        const resCart = await fetch(API_URL + "/cart", {
+            headers:{ Authorization:"Bearer "+token }
+        });
+
+        const cart = await resCart.json();
+
+        const items = cart.map(i => ({
+            product_id: i.product_id,
+            quantity: i.quantity
+        }));
+
+        const paymentStatus = selectedMethod==="COD" ? "Pending" : "Paid";
+
+        await fetch(API_URL + "/orders", {
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization":"Bearer "+token
+            },
+            body: JSON.stringify({ items, payment_status: paymentStatus })
+        });
+
+        alert("Order Success ✅");
+
+        // ✅ CLEAR AFTER ORDER
+        localStorage.removeItem("discountPercent");
+
+        window.location.href = "orders.html";
+
+    }catch(err){
+        console.error(err);
+        alert("Failed ❌");
+    }
+}
+</script>
+
+</body>
+</html>

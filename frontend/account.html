@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Account</title>
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <h2>My Account</h2>
+    <div class="cart">
+        <i class="fa fa-shopping-cart"></i>
+        <span id="cartCount">0</span>
+    </div>
+</div>
+
+<!-- PROFILE -->
+<div class="profile">
+    <div class="avatar" id="avatar"></div>
+    <div>
+        <h3 id="userName"></h3>
+        <p id="userEmail"></p>
+    </div>
+</div>
+
+<!-- SECTIONS -->
+<div class="account-container">
+
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <i class="fa fa-question-circle"></i> Help & Support
+        </div>
+        <div class="section-content">
+            <div class="item">Guide</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <i class="fa fa-gift"></i> Offers & Discounts
+        </div>
+        <div class="section-content">
+            <div class="item">Gift Store</div>
+            <div class="item">Offer Store</div>
+            <div class="item">Gift Card</div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title" onclick="toggleSection(this)">
+            <i class="fa fa-info-circle"></i> More Information
+        </div>
+        <div class="section-content">
+            <div class="item">About</div>
+            <div class="item">Legal</div>
+            <div class="item logout" onclick="logout()">Logout</div>
+        </div>
+    </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+    <div onclick="goHome()">
+        <i class="fa fa-home"></i>
+        <p>Home</p>
+    </div>
+    <div>
+        <i class="fa fa-list"></i>
+        <p>Categories</p>
+    </div>
+    <div>
+        <div onclick="gowishlist()">
+        <i class="fa fa-heart"></i>
+        <p>Wishlist</p>
+    </div>
+    </div>
+    <div onclick="goOrders()">
+        <i class="fa fa-box"></i>
+        <p>Orders</p>
+    </div>
+</div>
+
+<script>
+
+// Toggle section
+function toggleSection(element) {
+    let content = element.nextElementSibling;
+    content.style.display =
+        content.style.display === "block" ? "none" : "block";
+}
+
+// Get initials
+function getInitials(name) {
+    if (!name) return "";
+    let words = name.split(" ");
+    return (words[0][0] + (words[1] ? words[1][0] : "")).toUpperCase();
+}
+
+let user = JSON.parse(localStorage.getItem("user"));
+
+if (!user) {
+    window.location.href = "login.html";
+}
+
+document.getElementById("userName").innerText = user.name;
+document.getElementById("userEmail").innerText = user.email;
+document.getElementById("avatar").innerText = getInitials(user.name);
+
+// Redirect if not logged in
+if (!username) {
+    window.location.href = "login.html";
+}
+
+// Show user data
+document.getElementById("userName").innerText = username;
+document.getElementById("userEmail").innerText = email || "";
+document.getElementById("avatar").innerText = getInitials(username);
+
+// Cart count
+let cartItems = JSON.parse(localStorage.getItem("cart")) || [];
+document.getElementById("cartCount").innerText = cartItems.length;
+
+// Logout
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+
+// Navigation
+function goHome() {
+    window.location.href = "products.html";
+}
+function gowishlist() {
+    window.location.href = "wishlist.html";
+}
+function goOrders() {
+    window.location.href = "orders.html";
+}
+
+</script>
+
+</body>
+</html>

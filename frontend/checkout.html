@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f8f9fa; }
+.card { border-radius:15px; }
+
+.address-box {
+    background:white;
+    padding:15px;
+    border-radius:10px;
+}
+
+.price-line {
+    display:flex;
+    justify-content:space-between;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-5">
+<h3 class="mb-4 text-center">🛒 Checkout</h3>
+
+<div class="row">
+
+<!-- LEFT -->
+<div class="col-md-8">
+
+<div class="address-box shadow mb-3">
+<h5>📍 Delivery Address</h5>
+
+<input id="name" class="form-control mb-2" placeholder="Full Name">
+<input id="phone" class="form-control mb-2" placeholder="Phone Number">
+<textarea id="address" class="form-control mb-2" placeholder="Full Address"></textarea>
+
+<div class="row">
+    <div class="col">
+        <input id="city" class="form-control mb-2" placeholder="City">
+    </div>
+    <div class="col">
+        <input id="pincode" class="form-control mb-2" placeholder="Pincode">
+    </div>
+</div>
+
+<button onclick="saveAddress()" class="btn btn-success w-100">
+Save Address
+</button>
+
+<p id="savedAddress" class="mt-2 text-success small"></p>
+</div>
+
+<!-- CART -->
+<div id="cartItems"></div>
+
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-4">
+<div class="card p-3 shadow">
+
+<h5>Order Summary</h5>
+<hr>
+
+<div class="price-line">
+<span>Total</span>
+<span>₹<span id="total">0</span></span>
+</div>
+
+<div class="price-line text-success" id="discountRow" style="display:none;">
+<span>Discount</span>
+<span>- ₹<span id="discount">0</span></span>
+</div>
+
+<hr>
+
+<div class="price-line fw-bold">
+<span>Final Amount</span>
+<span>₹<span id="final">0</span></span>
+</div>
+
+<button class="btn btn-success w-100 mt-3" onclick="proceedToPayment()">
+Proceed to Payment
+</button>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+
+const token = localStorage.getItem("token");
+
+let cart = [];
+let total = 0;
+
+// ✅ Safe discount read
+let discountPercent = parseFloat(localStorage.getItem("discountPercent"));
+if (isNaN(discountPercent)) discountPercent = 0;
+
+// 📦 LOAD CART
+async function loadCart(){
+
+    const container = document.getElementById("cartItems");
+    container.innerHTML = "<p>Loading...</p>";
+
+    try{
+        let res = await fetch(API_URL + "/cart", {
+            headers: { Authorization: "Bearer " + token }
+        });
+
+        let data = await res.json();
+
+        cart = Array.isArray(data) ? data : [];
+        total = 0;
+
+        if(cart.length === 0){
+            container.innerHTML = "<h5 class='text-center'>Cart is empty 🛒</h5>";
+            updateSummary();
+            return;
+        }
+
+        let out = "";
+
+        cart.forEach(item => {
+
+            let qty = item.quantity || 1;
+            let price = item.price || 0;
+            let sub = qty * price;
+
+            total += sub;
+
+            out += `
+            <div class="card mb-2 p-2 d-flex justify-content-between">
+                <span>${item.name} × ${qty}</span>
+                <span>₹${sub.toFixed(2)}</span>
+            </div>`;
+        });
+
+        container.innerHTML = out;
+
+        updateSummary();
+
+    }catch(err){
+        console.error(err);
+        container.innerHTML = "<p class='text-danger'>Error loading cart ❌</p>";
+    }
+}
+
+// 💰 SUMMARY WITH DISCOUNT
+function updateSummary(){
+
+    let discount = 0;
+    let final = total;
+
+    if(discountPercent > 0){
+        discount = (total * discountPercent) / 100;
+        final = total - discount;
+
+        document.getElementById("discountRow").style.display = "flex";
+    } else {
+        document.getElementById("discountRow").style.display = "none";
+    }
+
+    document.getElementById("total").innerText = total.toFixed(2);
+    document.getElementById("discount").innerText = discount.toFixed(2);
+    document.getElementById("final").innerText = final.toFixed(2);
+
+    localStorage.setItem("finalAmount", final.toFixed(2));
+}
+
+// 📍 SAVE ADDRESS
+function saveAddress(){
+
+    const addr = {
+        name: document.getElementById("name").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        city: document.getElementById("city").value.trim(),
+        pincode: document.getElementById("pincode").value.trim()
+    };
+
+    if(!addr.name || !addr.phone || !addr.address || !addr.city || !addr.pincode){
+        alert("Please fill all fields ❌");
+        return;
+    }
+
+    localStorage.setItem("address", JSON.stringify(addr));
+
+    document.getElementById("savedAddress").innerText =
+    "Address saved successfully ✅";
+}
+
+// LOAD ADDRESS
+function loadAddress(){
+    const saved = JSON.parse(localStorage.getItem("address"));
+
+    if(saved){
+        document.getElementById("name").value = saved.name || "";
+        document.getElementById("phone").value = saved.phone || "";
+        document.getElementById("address").value = saved.address || "";
+        document.getElementById("city").value = saved.city || "";
+        document.getElementById("pincode").value = saved.pincode || "";
+
+        document.getElementById("savedAddress").innerText =
+        "Using saved address ✅";
+    }
+}
+
+// 💳 PAYMENT
+function proceedToPayment(){
+
+    if(cart.length === 0){
+        alert("Cart is empty ❌");
+        return;
+    }
+
+    const addr = localStorage.getItem("address");
+
+    if(!addr){
+        alert("Please save delivery address ❌");
+        return;
+    }
+
+    window.location.href = "payment.html";
+}
+
+// 🧪 DEBUG (optional)
+console.log("Discount from localStorage:", discountPercent);
+
+// INIT
+loadCart();
+loadAddress();
+
+</script>
+
+</body>
+</html>

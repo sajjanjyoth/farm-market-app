@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+mysql-connector-python
+bcrypt
+python-jose
+razorpay
+reportlab
+python-multipart
+twilio

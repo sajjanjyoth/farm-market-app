@@ -1,0 +1,29 @@
+<script>
+// ADD COUPON FIXED
+function addCoupon(){
+
+const code = document.getElementById("code").value.trim();
+const discount = Number(document.getElementById("discount").value);
+const min = Number(document.getElementById("min").value) || 0;
+const expiry = document.getElementById("expiry").value || null;
+
+if(!code || !discount){
+    showToast("Fill required ❌");
+    return;
+}
+
+fetch(API_URL + "/coupons", {
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body: JSON.stringify({ code, discount, min, expiry })
+})
+.then(res=>{
+if(!res.ok) throw new Error();
+return res.json();
+})
+.then(()=>{
+showToast("Added ✅");
+loadCoupons();
+});
+}
+</script>

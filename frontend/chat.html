@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Chat</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+body { background:#f1f3f6; }
+
+/* HEADER */
+.chat-header {
+    background:#198754;
+    color:white;
+    padding:12px;
+    border-radius:10px;
+    font-weight:500;
+}
+
+/* CHAT BOX */
+.chat-box {
+    height:450px;
+    overflow-y:auto;
+    background:#e9ecef;
+    padding:15px;
+    border-radius:10px;
+}
+
+/* MESSAGE */
+.msg {
+    max-width:70%;
+    padding:10px 12px;
+    border-radius:12px;
+    margin:8px 0;
+    font-size:14px;
+    position:relative;
+}
+
+/* SENDER */
+.me {
+    background:#dcf8c6;
+    margin-left:auto;
+    text-align:right;
+}
+
+/* RECEIVER */
+.other {
+    background:white;
+    margin-right:auto;
+}
+
+/* TIME */
+.time {
+    font-size:10px;
+    opacity:0.6;
+}
+
+/* DELETE BTN */
+.delete-btn {
+    position:absolute;
+    top:2px;
+    right:6px;
+    font-size:12px;
+    cursor:pointer;
+    color:red;
+    display:none;
+}
+
+.msg.me:hover .delete-btn {
+    display:block;
+}
+
+/* INPUT */
+.chat-input {
+    background:white;
+    padding:10px;
+    border-radius:10px;
+}
+
+/* EMPTY */
+.empty {
+    text-align:center;
+    margin-top:150px;
+    color:#888;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-3">
+
+<!-- HEADER -->
+<div class="chat-header d-flex justify-content-between align-items-center">
+    <span>💬 Chat</span>
+    <button onclick="goBack()" class="btn btn-light btn-sm">⬅ Back</button>
+</div>
+
+<!-- CHAT -->
+<div id="chat" class="chat-box mt-2"></div>
+
+<!-- INPUT -->
+<div class="chat-input d-flex mt-2">
+    <input id="msg" class="form-control me-2" placeholder="Type a message...">
+    <button onclick="send()" class="btn btn-success">Send</button>
+</div>
+
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+const farmerId = new URLSearchParams(location.search).get("user");
+
+const chatDiv = document.getElementById("chat");
+const msgInput = document.getElementById("msg");
+
+// 🔐 GET USER ID
+function getUserId(){
+    try{
+        return JSON.parse(atob(token.split('.')[1])).id;
+    }catch{
+        return null;
+    }
+}
+
+// ⏱ FORMAT TIME
+function formatTime(t){
+    if(!t) return "";
+    let d = new Date(t);
+    return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+
+// 📦 LOAD CHAT
+let lastCount = 0;
+
+function loadChat(){
+
+if(!farmerId){
+    chatDiv.innerHTML = "<p class='text-danger'>Invalid chat user ❌</p>";
+    return;
+}
+
+fetch(API_URL + "/chat/" + farmerId,{
+headers:{Authorization:"Bearer "+token}
+})
+.then(res=>{
+    if(!res.ok) throw new Error();
+    return res.json();
+})
+.then(data=>{
+
+    if(!Array.isArray(data) || data.length===0){
+        chatDiv.innerHTML = "<div class='empty'>No messages yet 💬</div>";
+        return;
+    }
+
+    // 🚀 Avoid re-render if same length
+    if(data.length === lastCount) return;
+    lastCount = data.length;
+
+    let userId = getUserId();
+    let out="";
+
+    data.forEach(m=>{
+        let isMe = m.sender_id == userId;
+
+        out += `
+        <div class="msg ${isMe ? 'me':'other'}">
+            
+            ${isMe ? `<span class="delete-btn" onclick="deleteMsg(${m.id})">🗑</span>` : ""}
+
+            ${m.message}
+
+            <div class="time">${formatTime(m.created_at)}</div>
+        </div>`;
+    });
+
+    chatDiv.innerHTML = out;
+    chatDiv.scrollTop = chatDiv.scrollHeight;
+
+})
+.catch(()=>{
+    chatDiv.innerHTML = "<p class='text-danger'>Error loading chat ❌</p>";
+});
+}
+
+// 📤 SEND
+function send(){
+
+let message = msgInput.value.trim();
+
+if(!message){
+    msgInput.focus();
+    return;
+}
+
+fetch(API_URL + "/chat",{
+method:"POST",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+receiver_id: farmerId,
+message: message
+})
+})
+.then(res=>{
+    if(!res.ok) throw new Error();
+    return res.json();
+})
+.then(()=>{
+    msgInput.value="";
+    loadChat();
+})
+.catch(()=>{
+    alert("Send failed ❌");
+});
+}
+
+// 🗑 DELETE MESSAGE
+function deleteMsg(id){
+
+if(!confirm("Delete this message?")) return;
+
+fetch(API_URL + "/chat/" + id,{
+method:"DELETE",
+headers:{Authorization:"Bearer "+token}
+})
+.then(()=>{
+    loadChat();
+})
+.catch(()=>alert("Delete failed ❌"));
+}
+
+// ⌨ ENTER SEND
+msgInput.addEventListener("keypress", function(e){
+if(e.key === "Enter") send();
+});
+
+// 🔄 AUTO REFRESH
+setInterval(loadChat, 2000);
+
+// INIT
+loadChat();
+
+// BACK
+function goBack(){
+window.history.back();
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Farmer Profile</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f8f9fa; font-family:'Segoe UI'; }
+
+.card {
+    border-radius:12px;
+    box-shadow:0 4px 8px rgba(0,0,0,0.08);
+}
+
+.nav-tabs .nav-link.active {
+    background:#198754;
+    color:white;
+}
+
+.toast-msg {
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#198754;
+    color:white;
+    padding:10px 20px;
+    border-radius:8px;
+}
+</style>
+</head>
+
+<body class="p-4">
+
+<div class="container">
+
+<h3 class="text-success mb-3">🌾 Farmer Profile</h3>
+
+<div class="row">
+
+<!-- LEFT -->
+<div class="col-md-3">
+
+<div class="card text-center p-3">
+<img id="profilePic"
+src=""
+class="rounded-circle mb-3"
+width="120"
+height="120"
+onerror="this.src='https://cdn-icons-png.flaticon.com/512/149/149071.png'">
+
+<input type="file" id="profileImageInput" class="form-control mb-2">
+<button onclick="uploadProfileImage()" class="btn btn-sm btn-success">Upload Image</button>
+
+<h5 id="farmerName">Farmer Name</h5>
+<p id="farmName">Farm Name</p>
+</div>
+
+<div class="card p-3 mt-3">
+<h6>Summary</h6>
+<p>Products Sold: <span id="productsSold">0</span></p>
+<p>Total Revenue: ₹<span id="totalRevenue">0</span></p>
+<p>Pending Orders: <span id="pendingOrders">0</span></p>
+</div>
+
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-9">
+
+<ul class="nav nav-tabs mb-3">
+<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#personal">Personal</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#farm">Farm</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#payment">Payment</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#security">Security</button></li>
+<li class="nav-item"><a href="add_product.html" class="nav-link">➕ Add Product</a></li>
+<li class="nav-item"><a href="products.html" class="nav-link">📦 My Products</a></li>
+<li class="nav-item"><a href="farmer_orders.html" class="nav-link">📋 Orders</a></li>
+</ul>
+
+<div class="tab-content">
+
+<!-- PERSONAL -->
+<div class="tab-pane fade show active" id="personal">
+<div class="card p-3">
+
+<input id="firstname" class="form-control mb-2" placeholder="First Name">
+<input id="lastname" class="form-control mb-2" placeholder="Last Name">
+<input id="email" class="form-control mb-2" placeholder="Email">
+<input id="phone" class="form-control mb-2" placeholder="Phone">
+<input id="address" class="form-control mb-2" placeholder="Address">
+
+<button onclick="updatePersonal()" class="btn btn-success">Save</button>
+
+</div>
+</div>
+
+<!-- FARM -->
+<div class="tab-pane fade" id="farm">
+<div class="card p-3">
+
+<input id="farmNameInput" class="form-control mb-2" placeholder="Farm Name">
+<textarea id="farmDesc" class="form-control mb-2" placeholder="Description"></textarea>
+
+<select id="farmType" class="form-control mb-2">
+<option>Organic</option>
+<option>Conventional</option>
+</select>
+
+<input id="farmLocation" class="form-control mb-2" placeholder="Location">
+
+<button onclick="updateFarm()" class="btn btn-success">Save</button>
+
+</div>
+</div>
+
+<!-- PAYMENT -->
+<div class="tab-pane fade" id="payment">
+<div class="card p-3">
+
+<input id="upiId" class="form-control mb-2" placeholder="UPI ID">
+<input id="bankAcc" class="form-control mb-2" placeholder="Bank Account">
+<input id="bankIfsc" class="form-control mb-2" placeholder="IFSC">
+
+<input type="file" id="qrInput" class="form-control mb-2">
+<img id="qrPreview" width="150" class="mb-2">
+
+<button onclick="uploadQR()" class="btn btn-success">Save</button>
+
+</div>
+</div>
+
+<!-- SECURITY -->
+<div class="tab-pane fade" id="security">
+<div class="card p-3">
+
+<input type="password" id="password" class="form-control mb-2" placeholder="New Password">
+<button onclick="updatePassword()" class="btn btn-success">Update</button>
+
+</div>
+</div>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+
+if(!token){
+    alert("Login required ❌");
+    location.href="login.html";
+}
+
+// TOAST
+function showToast(msg){
+    let t=document.createElement("div");
+    t.className="toast-msg";
+    t.innerText=msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),2000);
+}
+
+// LOAD PROFILE
+async function loadProfile(){
+try{
+    let res = await fetch(API_URL+"/farmer/profile",{
+        headers:{Authorization:"Bearer "+token}
+    });
+
+    // 🔥 SHOW REAL ERROR
+    if(!res.ok){
+        let text = await res.text();
+        console.error("API ERROR:", text);
+        showToast("Server error ❌");
+        return;
+    }
+
+    let data = await res.json();
+    console.log("PROFILE DATA:", data);
+    firstname.value = data.name || "";
+    lastname.value = data.lastname || "";
+    email.value = data.email || "";
+    phone.value = data.phone || "";
+    address.value = data.address || "";
+
+    farmerName.innerText = data.name || "";
+    farmName.innerText = data.farmName || "";
+
+    profilePic.src = data.profileImage 
+        ? API_URL + data.profileImage 
+        : "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+
+}catch(err){
+    console.error(err);
+    showToast("Failed to load profile ❌");
+}
+}
+
+// PROFILE IMAGE
+function uploadProfileImage(){
+let file = profileImageInput.files[0];
+if(!file){ alert("Select image ❌"); return; }
+
+let fd = new FormData();
+fd.append("image",file);
+
+fetch(API_URL+"/farmer/upload-profile",{
+method:"POST",
+headers:{Authorization:"Bearer "+token},
+body:fd
+})
+.then(()=>{ showToast("Profile Updated ✅"); loadProfile(); });
+}
+
+// QR
+function uploadQR(){
+let file = qrInput.files[0];
+if(!file){ alert("Select QR ❌"); return; }
+
+let fd = new FormData();
+fd.append("qr",file);
+
+fetch(API_URL+"/farmer/upload-qr",{
+method:"POST",
+headers:{Authorization:"Bearer "+token},
+body:fd
+})
+.then(()=>{ showToast("QR Uploaded ✅"); loadProfile(); });
+}
+
+// UPDATE PERSONAL
+function updatePersonal(){
+fetch(API_URL+"/farmer/profile",{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+name:firstname.value,
+lastname:lastname.value,
+email:email.value,
+phone:phone.value,
+address:address.value
+})
+}).then(()=>showToast("Updated ✅"));
+}
+
+// FARM
+function updateFarm(){
+fetch(API_URL+"/farmer/farm",{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({
+farmName:farmNameInput.value,
+farmDesc:farmDesc.value,
+farmType:farmType.value,
+farmLocation:farmLocation.value
+})
+}).then(()=>showToast("Updated ✅"));
+}
+
+// PASSWORD
+function updatePassword(){
+if(!password.value){ alert("Enter password ❌"); return; }
+
+fetch(API_URL+"/farmer/password",{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({password:password.value})
+}).then(()=>showToast("Password Updated ✅"));
+}
+</script>
+
+</body>
+</html>

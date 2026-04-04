@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Add Product</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f8f9fa; }
+.form-box {
+    background:white;
+    padding:25px;
+    border-radius:15px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container mt-5">
+<div class="row justify-content-center">
+<div class="col-md-6">
+
+<div class="form-box shadow">
+
+<h4 class="mb-3">➕ Add Product</h4>
+
+<!-- NAME -->
+<input id="name" class="form-control mb-2" placeholder="Product Name">
+
+<!-- PRICE -->
+<input id="price" type="number" class="form-control mb-2" placeholder="Price ₹">
+
+<!-- CATEGORY -->
+<select id="category" class="form-select mb-2">
+<option value="">Select Category</option>
+<option>Fruits</option>
+<option>Vegetables</option>
+<option>Dairy</option>
+<option>Grains</option>
+<option>Pulses</option>
+<option>Cash Crop</option>
+<option>Flowers</option>
+</select>
+
+<div id="variants">
+  <div class="d-flex gap-2 mb-2">
+    <input type="number" class="form-control qty" placeholder="Quantity">
+    <select class="form-select unit">
+      <option value="kg">kg</option>
+      <option value="g">g</option>
+      <option value="litre">litre</option>
+      <option value="piece">piece</option>
+    </select>
+    <input type="number" class="form-control price" placeholder="Price ₹">
+  </div>
+</div>
+
+<button onclick="addVariant()" class="btn btn-sm btn-secondary mb-2">
++ Add More
+</button>
+
+<!-- DESCRIPTION -->
+<textarea id="description" class="form-control mb-2" placeholder="Description"></textarea>
+
+<!-- IMAGE -->
+<input id="image" type="file" class="form-control mb-2">
+
+<!-- LOCATION -->
+<button onclick="getLocation()" class="btn btn-outline-success w-100 mb-2">
+📍 Get Location
+</button>
+
+<p id="locationText" class="text-muted small"></p>
+
+<!-- SUBMIT -->
+<button onclick="addProduct()" class="btn btn-success w-100">
+Add Product
+</button>
+
+</div>
+
+</div>
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+
+let lat = null;
+let lng = null;
+
+// =========================
+// 📍 GET LOCATION
+// =========================
+function getLocation() {
+    if (!navigator.geolocation) {
+        alert("Geolocation not supported ❌");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            lat = pos.coords.latitude;
+            lng = pos.coords.longitude;
+
+            document.getElementById("locationText").innerText =
+                "Location captured ✅";
+        },
+        () => {
+            alert("Location access denied ❌");
+        }
+    );
+}
+
+// =========================
+// ➕ ADD VARIANT
+// =========================
+function addVariant() {
+
+    let div = document.createElement("div");
+    div.className = "d-flex gap-2 mb-2";
+
+    div.innerHTML = `
+        <input type="number" class="form-control qty" placeholder="Quantity">
+        <select class="form-select unit">
+            <option value="kg">kg</option>
+            <option value="g">g</option>
+            <option value="litre">litre</option>
+            <option value="piece">piece</option>
+        </select>
+        <input type="number" class="form-control price" placeholder="Price ₹">
+    `;
+
+    document.getElementById("variants").appendChild(div);
+}
+
+// =========================
+// 📦 ADD PRODUCT
+// =========================
+function addProduct() {
+
+    let name = document.getElementById("name").value.trim();
+    let price = document.getElementById("price").value;
+    let category = document.getElementById("category").value;
+    let description = document.getElementById("description").value.trim();
+    let imageInput = document.getElementById("image");
+    let image = imageInput ? imageInput.files[0] : null;
+
+    let token = localStorage.getItem("token");
+
+    // ✅ VALIDATION
+    if (!name || !price || !category) {
+        alert("Fill all fields ❌");
+        return;
+    }
+
+    if (!token) {
+        alert("Login required ❌");
+        return;
+    }
+
+    // =========================
+    // 📊 GET VARIANTS
+    // =========================
+    let variants = [];
+
+    document.querySelectorAll("#variants > div").forEach(v => {
+
+        let qty = v.querySelector(".qty")?.value;
+        let unit = v.querySelector(".unit")?.value;
+        let vprice = v.querySelector(".price")?.value;
+
+        if (qty && vprice) {
+            variants.push({
+                qty: Number(qty),
+                unit: unit,
+                price: Number(vprice)
+            });
+        }
+    });
+
+    // =========================
+    // 📦 FORM DATA
+    // =========================
+    let formData = new FormData();
+
+    formData.append("name", name);
+    formData.append("price", price);
+    formData.append("category", category);
+    formData.append("description", description);
+
+    if (lat && lng) {
+        formData.append("lat", lat);
+        formData.append("lng", lng);
+    }
+
+    if (image) {
+        formData.append("image", image);
+    }
+
+    formData.append("variants", JSON.stringify(variants));
+
+    // =========================
+    // 🚀 API CALL
+    // =========================
+    fetch(API_URL + "/products", {
+        method: "POST",
+        headers: {
+            "Authorization": "Bearer " + token
+        },
+        body: formData
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Failed");
+        return res.json();
+    })
+    .then(() => {
+        alert("Product added successfully ✅");
+        window.location.href = "products.html";
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error adding product ❌");
+    });
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Cart</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f1f3f6; }
+.navbar { background:#198754; }
+
+.cart-card {
+    background:white;
+    border-radius:10px;
+    padding:15px;
+}
+
+.product-img {
+    width:90px;
+    height:90px;
+    object-fit:cover;
+    border-radius:8px;
+}
+
+.summary-box {
+    background:white;
+    border-radius:10px;
+    position:sticky;
+    top:20px;
+}
+
+.coupon-box {
+    background:white;
+    border-radius:10px;
+    padding:15px;
+}
+
+.price-line {
+    display:flex;
+    justify-content:space-between;
+}
+
+.best-coupon {
+    border:2px dashed #198754;
+    padding:10px;
+    border-radius:8px;
+    background:#e9f7ef;
+}
+
+.toast-msg {
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#198754;
+    color:white;
+    padding:10px 15px;
+    border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+
+<nav class="navbar p-3">
+<div class="container">
+<h5 class="text-white mb-0">🛒 My Cart</h5>
+<a href="products.html" class="btn btn-light">Continue Shopping</a>
+</div>
+</nav>
+
+<div class="container mt-4">
+<div class="row">
+
+<!-- CART -->
+<div class="col-md-8" id="cartItems"></div>
+
+<!-- RIGHT SIDE -->
+<div class="col-md-4">
+
+<!-- 🎟 COUPON -->
+<div class="coupon-box shadow mb-3">
+<h6>🎟 Coupons</h6>
+
+<div id="bestCoupon" class="best-coupon mb-2 d-none"></div>
+
+<input id="coupon" class="form-control mb-2" placeholder="Enter coupon code">
+
+<button onclick="applyCoupon()" class="btn btn-outline-success w-100 mb-2">
+Apply Coupon
+</button>
+
+<button onclick="removeCoupon()" class="btn btn-outline-danger w-100">
+Remove Coupon
+</button>
+</div>
+
+<!-- 💰 SUMMARY -->
+<div class="p-3 shadow summary-box">
+
+<h6 class="text-muted">PRICE DETAILS</h6>
+<hr>
+
+<div class="price-line">
+<span>Total Items</span>
+<span id="itemsCount">0</span>
+</div>
+
+<div class="price-line">
+<span>Total Price</span>
+<span>₹<span id="total">0</span></span>
+</div>
+
+<div class="price-line text-success">
+<span>Discount</span>
+<span>- ₹<span id="discount">0</span></span>
+</div>
+
+<hr>
+
+<div class="price-line fw-bold">
+<span>Amount Payable</span>
+<span>₹<span id="finalTotal">0</span></span>
+</div>
+
+<button onclick="goCheckout()" class="btn btn-warning w-100 mt-3">
+Proceed to Checkout
+</button>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+
+let cartData = [];
+let total = 0;
+let discountPercent = 0;
+let coupons = [];
+
+// 🔔 TOAST
+function showToast(msg){
+    let t=document.createElement("div");
+    t.className="toast-msg";
+    t.innerText=msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),2000);
+}
+
+// 📦 LOAD CART
+async function loadCart(){
+let res = await fetch(API_URL+"/cart",{
+headers:{Authorization:"Bearer "+token}
+});
+let data = await res.json();
+
+cartData = data || [];
+
+if(cartData.length===0){
+cartItems.innerHTML="<h5 class='text-center'>Cart empty</h5>";
+updateSummary(0);
+return;
+}
+
+let out="";
+total=0;
+let count=0;
+
+cartData.forEach(item=>{
+
+let id = item.cart_id; // ✅ correct
+
+let sub=item.price*item.quantity;
+total+=sub;
+count+=item.quantity;
+
+out+=`
+<div class="cart-card mb-3">
+<div class="d-flex gap-3">
+
+<img src="${API_URL+item.image}" class="product-img">
+
+<div class="flex-grow-1">
+<h6>${item.name}</h6>
+<p>₹${item.price}</p>
+
+<button onclick="updateQty(${id},${item.quantity-1})">-</button>
+${item.quantity}
+<button onclick="updateQty(${id},${item.quantity+1})">+</button>
+</div>
+
+<div>
+₹${sub}
+<br>
+<button class="btn btn-danger btn-sm mt-2" onclick="removeItem(${id})">
+Remove
+</button>
+</div>
+
+</div>
+</div>`;
+});
+
+cartItems.innerHTML=out;
+updateSummary(count);
+loadCoupons();
+}
+
+// 🎟 COUPONS
+async function loadCoupons(){
+let res = await fetch(API_URL+"/coupons");
+coupons = await res.json();
+
+let best = coupons
+.filter(c => (!c.min || total >= c.min))
+.sort((a,b)=>b.discount-a.discount)[0];
+
+if(best){
+bestCoupon.innerHTML = `
+⭐ Best Coupon: <b>${best.code}</b> (${best.discount}% OFF)
+<button onclick="useBest('${best.code}')">Use</button>
+`;
+bestCoupon.classList.remove("d-none");
+}
+}
+
+// APPLY
+function applyCoupon(){
+let code=document.getElementById("coupon").value.trim();
+
+let c=coupons.find(x=>x.code===code);
+
+if(!c) return showToast("Invalid ❌");
+if(c.min && total<c.min) return showToast("Minimum ₹"+c.min);
+
+discountPercent=c.discount;
+localStorage.setItem("discountPercent", discountPercent);
+updateSummary();
+showToast("Applied ✅");
+}
+
+// AUTO APPLY
+function useBest(code){
+document.getElementById("coupon").value=code;
+applyCoupon();
+}
+
+// REMOVE
+function removeCoupon(){
+discountPercent=0;
+localStorage.removeItem("discountPercent");
+document.getElementById("coupon").value="";
+updateSummary();
+showToast("Removed ❌");
+}
+
+// SUMMARY
+function updateSummary(count=0){
+let discount=(total*discountPercent)/100;
+
+itemsCount.innerText=count;
+document.getElementById("total").innerText=total;
+document.getElementById("discount").innerText=discount.toFixed(2);
+document.getElementById("finalTotal").innerText=(total-discount).toFixed(2);
+}
+
+// UPDATE QTY
+async function updateQty(id,qty){
+if(!id) return showToast("Invalid ❌");
+
+if(qty<1) return removeItem(id);
+
+await fetch(API_URL+"/cart/"+id,{
+method:"PUT",
+headers:{
+Authorization:"Bearer "+token,
+"Content-Type":"application/json"
+},
+body:JSON.stringify({quantity:qty})
+});
+
+loadCart();
+}
+
+// REMOVE ITEM
+async function removeItem(id){
+if(!id) return showToast("Invalid ❌");
+
+await fetch(API_URL+"/cart/"+id,{
+method:"DELETE",
+headers:{Authorization:"Bearer "+token}
+});
+
+loadCart();
+}
+
+// CHECKOUT
+function goCheckout(){
+    localStorage.setItem("discountPercent", discountPercent);
+location.href="checkout.html";
+}
+
+// INIT
+loadCart();
+</script>
+
+</body>
+</html>
