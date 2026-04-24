@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<title>Farmer Panel</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+body{margin:0;}
+.sidebar{
+width:220px;
+height:100vh;
+background:#198754;
+color:white;
+position:fixed;
+padding:15px;
+}
+.sidebar a{
+display:block;
+color:white;
+padding:10px;
+text-decoration:none;
+border-radius:5px;
+}
+.sidebar a:hover{background:#157347;}
+.content{
+margin-left:230px;
+padding:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h4>🌾 Farmer</h4>
+<a href="farmer_profile.html">👤 Profile</a>
+<a href="add_product.html">➕ Add Product</a>
+<a href="my_products.html">📦 My Products</a>
+<a href="farmer_orders.html">📋 Orders</a>
+<a href="farmer_chat.html">💬 Chat</a>
+<a href="#" onclick="logout()">🚪 Logout</a>
+</div>
+
+<div class="content">
+<h3>Dashboard</h3>
+<p>Welcome to Farmer Panel 👋</p>
+</div>
+
+<script>
+function logout(){
+localStorage.clear();
+location.href="login.html";
+}
+</script>
+
+</body>
+</html>

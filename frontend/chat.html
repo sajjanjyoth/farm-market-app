@@ -4,12 +4,10 @@
 <title>Chat</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
 
 <style>
 body { background:#f1f3f6; }
 
-/* HEADER */
 .chat-header {
     background:#198754;
     color:white;
@@ -18,7 +16,6 @@ body { background:#f1f3f6; }
     font-weight:500;
 }
 
-/* CHAT BOX */
 .chat-box {
     height:450px;
     overflow-y:auto;
@@ -27,7 +24,6 @@ body { background:#f1f3f6; }
     border-radius:10px;
 }
 
-/* MESSAGE */
 .msg {
     max-width:70%;
     padding:10px 12px;
@@ -37,26 +33,22 @@ body { background:#f1f3f6; }
     position:relative;
 }
 
-/* SENDER */
 .me {
     background:#dcf8c6;
     margin-left:auto;
     text-align:right;
 }
 
-/* RECEIVER */
 .other {
     background:white;
     margin-right:auto;
 }
 
-/* TIME */
 .time {
     font-size:10px;
     opacity:0.6;
 }
 
-/* DELETE BTN */
 .delete-btn {
     position:absolute;
     top:2px;
@@ -71,14 +63,12 @@ body { background:#f1f3f6; }
     display:block;
 }
 
-/* INPUT */
 .chat-input {
     background:white;
     padding:10px;
     border-radius:10px;
 }
 
-/* EMPTY */
 .empty {
     text-align:center;
     margin-top:150px;
@@ -91,16 +81,13 @@ body { background:#f1f3f6; }
 
 <div class="container mt-3">
 
-<!-- HEADER -->
 <div class="chat-header d-flex justify-content-between align-items-center">
-    <span>💬 Chat</span>
+    <span id="chatTitle">💬 Chat</span>
     <button onclick="goBack()" class="btn btn-light btn-sm">⬅ Back</button>
 </div>
 
-<!-- CHAT -->
 <div id="chat" class="chat-box mt-2"></div>
 
-<!-- INPUT -->
 <div class="chat-input d-flex mt-2">
     <input id="msg" class="form-control me-2" placeholder="Type a message...">
     <button onclick="send()" class="btn btn-success">Send</button>
@@ -111,13 +98,16 @@ body { background:#f1f3f6; }
 <script src="js/config.js"></script>
 
 <script>
+const API = API_URL.replace(/\/+$/, "");
 const token = localStorage.getItem("token");
-const farmerId = new URLSearchParams(location.search).get("user");
+
+// ✅ FIXED PARAM NAME
+const receiverId = new URLSearchParams(location.search).get("receiver_id");
 
 const chatDiv = document.getElementById("chat");
 const msgInput = document.getElementById("msg");
 
-// 🔐 GET USER ID
+// 🔐 GET USER ID FROM TOKEN
 function getUserId(){
     try{
         return JSON.parse(atob(token.split('.')[1])).id;
@@ -126,11 +116,17 @@ function getUserId(){
     }
 }
 
-// ⏱ FORMAT TIME
+// ⏱ TIME FORMAT
 function formatTime(t){
     if(!t) return "";
     let d = new Date(t);
     return d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+}
+
+// 🚨 VALIDATION
+if(!receiverId){
+    chatDiv.innerHTML = "<p class='text-danger'>Invalid chat user ❌</p>";
+    throw new Error("Missing receiver_id");
 }
 
 // 📦 LOAD CHAT
@@ -138,12 +134,7 @@ let lastCount = 0;
 
 function loadChat(){
 
-if(!farmerId){
-    chatDiv.innerHTML = "<p class='text-danger'>Invalid chat user ❌</p>";
-    return;
-}
-
-fetch(API_URL + "/chat/" + farmerId,{
+fetch(`${API}/chat/${receiverId}`,{
 headers:{Authorization:"Bearer "+token}
 })
 .then(res=>{
@@ -157,7 +148,6 @@ headers:{Authorization:"Bearer "+token}
         return;
     }
 
-    // 🚀 Avoid re-render if same length
     if(data.length === lastCount) return;
     lastCount = data.length;
 
@@ -169,11 +159,8 @@ headers:{Authorization:"Bearer "+token}
 
         out += `
         <div class="msg ${isMe ? 'me':'other'}">
-            
             ${isMe ? `<span class="delete-btn" onclick="deleteMsg(${m.id})">🗑</span>` : ""}
-
             ${m.message}
-
             <div class="time">${formatTime(m.created_at)}</div>
         </div>`;
     });
@@ -187,7 +174,7 @@ headers:{Authorization:"Bearer "+token}
 });
 }
 
-// 📤 SEND
+// 📤 SEND MESSAGE
 function send(){
 
 let message = msgInput.value.trim();
@@ -197,14 +184,14 @@ if(!message){
     return;
 }
 
-fetch(API_URL + "/chat",{
+fetch(`${API}/chat`,{
 method:"POST",
 headers:{
 "Content-Type":"application/json",
 Authorization:"Bearer "+token
 },
 body:JSON.stringify({
-receiver_id: farmerId,
+receiver_id: receiverId,
 message: message
 })
 })
@@ -221,22 +208,20 @@ message: message
 });
 }
 
-// 🗑 DELETE MESSAGE
+// 🗑 DELETE
 function deleteMsg(id){
 
 if(!confirm("Delete this message?")) return;
 
-fetch(API_URL + "/chat/" + id,{
+fetch(`${API}/chat/${id}`,{
 method:"DELETE",
 headers:{Authorization:"Bearer "+token}
 })
-.then(()=>{
-    loadChat();
-})
+.then(()=>loadChat())
 .catch(()=>alert("Delete failed ❌"));
 }
 
-// ⌨ ENTER SEND
+// ⌨ ENTER
 msgInput.addEventListener("keypress", function(e){
 if(e.key === "Enter") send();
 });

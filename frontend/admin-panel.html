@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{margin:0;background:#f4f6f9;font-family:Arial}
+
+/* LAYOUT */
+.wrapper{display:flex}
+
+/* SIDEBAR */
+.sidebar{
+width:230px;
+height:100vh;
+background:#198754;
+color:white;
+padding:20px;
+position:fixed;
+}
+.sidebar a{
+display:block;
+padding:10px;
+margin-bottom:8px;
+border-radius:8px;
+cursor:pointer;
+}
+.sidebar a:hover{background:rgba(255,255,255,0.2)}
+
+/* CONTENT */
+.content{
+margin-left:230px;
+width:100%;
+padding:20px;
+}
+
+/* CARDS */
+.card-box{
+background:white;
+padding:20px;
+border-radius:12px;
+text-align:center;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ORDER CARD */
+.order-card{
+background:white;
+padding:15px;
+border-radius:12px;
+margin-bottom:10px;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* STATUS */
+.badge-status{
+padding:5px 10px;
+border-radius:6px;
+font-size:12px;
+}
+.pending{background:#ffc107}
+.accepted{background:#0dcaf0}
+.shipped{background:#0d6efd;color:white}
+.outfordelivery{background:#6f42c1;color:white}
+.delivered{background:#198754;color:white}
+
+/* ITEM */
+.item-box{border-bottom:1px solid #eee;padding:6px 0}
+</style>
+</head>
+
+<body>
+
+<div class="wrapper">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+<h5>Admin Panel</h5>
+
+<a onclick="showPage('dashboard')">📊 Dashboard</a>
+<a onclick="showPage('orders')">📦 Orders</a>
+<a onclick="showPage('products')">🛒 Products</a>
+<a onclick="showPage('users')">👤 Users</a>
+
+<button onclick="logout()" class="btn btn-light w-100 mt-3">Logout</button>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+<h3>Dashboard</h3>
+
+<div class="row g-3">
+<div class="col-md-3"><div class="card-box"><h6>Users</h6><h2 id="userCount">0</h2></div></div>
+<div class="col-md-3"><div class="card-box"><h6>Products</h6><h2 id="productCount">0</h2></div></div>
+<div class="col-md-3"><div class="card-box"><h6>Orders</h6><h2 id="orderCount">0</h2></div></div>
+<div class="col-md-3"><div class="card-box"><h6>Revenue</h6><h2 id="revenue">₹0</h2></div></div>
+</div>
+
+<hr>
+<canvas id="chart"></canvas>
+</div>
+
+<!-- ORDERS -->
+<div id="orders" style="display:none">
+<h3>Orders</h3>
+
+<input id="search" class="form-control mb-3" placeholder="Search order">
+
+<div id="ordersList"></div>
+</div>
+
+<!-- PRODUCTS -->
+<div id="products" style="display:none">
+<h3>Products</h3>
+
+<table class="table">
+<thead><tr><th>ID</th><th>Name</th><th>Price</th></tr></thead>
+<tbody id="productList"></tbody>
+</table>
+</div>
+
+<!-- USERS -->
+<div id="users" style="display:none">
+<h3>Users</h3>
+
+<table class="table">
+<thead><tr><th>ID</th><th>Name</th><th>Email</th></tr></thead>
+<tbody id="userList"></tbody>
+</table>
+</div>
+
+</div>
+</div>
+
+<!-- MODAL -->
+<div class="modal fade" id="orderModal">
+<div class="modal-dialog">
+<div class="modal-content">
+
+<div class="modal-header">
+<h5>Order Details</h5>
+<button class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body" id="modalBody"></div>
+
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="js/config.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+if(!token) location.href="login.html";
+
+let chartInstance;
+let allOrders=[];
+
+const statuses=["pending","accepted","shipped","out for delivery","delivered"];
+
+/* NAV */
+function showPage(id){
+["dashboard","orders","products","users"].forEach(s=>{
+document.getElementById(s).style.display="none";
+});
+document.getElementById(id).style.display="block";
+}
+
+/* DASHBOARD */
+async function loadDashboard(){
+
+let users = await fetch(API_URL+"/users",{headers:{Authorization:"Bearer "+token}}).then(r=>r.json());
+let products = await fetch(API_URL+"/products").then(r=>r.json());
+let orders = await fetch(API_URL+"/orders",{headers:{Authorization:"Bearer "+token}}).then(r=>r.json());
+
+userCount.innerText = users.length;
+productCount.innerText = products.length;
+orderCount.innerText = orders.length;
+
+let total = orders.reduce((a,b)=>a+(b.total||0),0);
+revenue.innerText = "₹"+total;
+
+/* CHART */
+if(chartInstance) chartInstance.destroy();
+
+chartInstance = new Chart(document.getElementById("chart"),{
+type:"bar",
+data:{
+labels:["Users","Products","Orders"],
+datasets:[{data:[users.length,products.length,orders.length]}]
+}
+});
+
+loadOrders();
+loadProducts(products);
+loadUsers(users);
+}
+
+/* ORDERS */
+async function loadOrders(){
+let res = await fetch(API_URL+"/orders",{headers:{Authorization:"Bearer "+token}});
+allOrders = await res.json();
+renderOrders(allOrders);
+}
+
+function renderOrders(data){
+ordersList.innerHTML = data.map(o=>`
+<div class="order-card">
+
+<div class="d-flex justify-content-between">
+<h5>Order #${o.id}</h5>
+<span class="badge-status ${o.status.replace(/ /g,'')}">${o.status}</span>
+</div>
+
+<p>Total: ₹${o.total || 0}</p>
+
+<select onchange="updateStatus(${o.id},this.value)" class="form-select w-50 mb-2">
+${statuses.map(s=>`<option ${o.status==s?'selected':''}>${s}</option>`).join("")}
+</select>
+
+<button onclick="viewDetails(${o.id})" class="btn btn-sm btn-primary">View</button>
+
+</div>
+`).join("");
+}
+
+/* UPDATE STATUS */
+async function updateStatus(id,status){
+let res = await fetch(API_URL+"/orders/"+id,{
+method:"PUT",
+headers:{
+"Content-Type":"application/json",
+Authorization:"Bearer "+token
+},
+body:JSON.stringify({status})
+});
+
+if(res.status!==200){
+alert("Update failed ❌");
+return;
+}
+
+loadOrders();
+}
+
+/* VIEW DETAILS */
+async function viewDetails(id){
+let res = await fetch(API_URL+"/orders/"+id,{headers:{Authorization:"Bearer "+token}});
+let data = await res.json();
+
+modalBody.innerHTML = (data.items||[]).map(i=>`
+<div class="item-box">
+${i.name || "Item"} - ${i.quantity || 1} × ₹${i.price || 0}
+</div>
+`).join("");
+
+new bootstrap.Modal(document.getElementById("orderModal")).show();
+}
+
+/* SEARCH */
+search.oninput=()=>{
+let q=search.value;
+renderOrders(allOrders.filter(o=>String(o.id).includes(q)));
+};
+
+/* PRODUCTS */
+function loadProducts(products){
+productList.innerHTML = products.map(p=>`
+<tr>
+<td>${p.id}</td>
+<td>${p.name}</td>
+<td>₹${p.price}</td>
+</tr>
+`).join("");
+}
+
+/* USERS */
+function loadUsers(users){
+userList.innerHTML = users.map(u=>`
+<tr>
+<td>${u.id}</td>
+<td>${u.name}</td>
+<td>${u.email}</td>
+</tr>
+`).join("");
+}
+
+/* LOGOUT */
+function logout(){
+localStorage.clear();
+location.href="login.html";
+}
+
+/* INIT */
+loadDashboard();
+</script>
+
+</body>
+</html>

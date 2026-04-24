@@ -3,18 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>My Cart</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
-body { background:#f1f3f6; }
+body { background:#f1f3f6; font-family:Segoe UI; }
 .navbar { background:#198754; }
 
 .cart-card {
     background:white;
     border-radius:10px;
     padding:15px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.08);
 }
 
 .product-img {
@@ -49,6 +51,12 @@ body { background:#f1f3f6; }
     background:#e9f7ef;
 }
 
+.qty-btn {
+    width:30px;
+    height:30px;
+    padding:0;
+}
+
 .toast-msg {
     position:fixed;
     bottom:20px;
@@ -73,13 +81,10 @@ body { background:#f1f3f6; }
 <div class="container mt-4">
 <div class="row">
 
-<!-- CART -->
 <div class="col-md-8" id="cartItems"></div>
 
-<!-- RIGHT SIDE -->
 <div class="col-md-4">
 
-<!-- 🎟 COUPON -->
 <div class="coupon-box shadow mb-3">
 <h6>🎟 Coupons</h6>
 
@@ -96,7 +101,6 @@ Remove Coupon
 </button>
 </div>
 
-<!-- 💰 SUMMARY -->
 <div class="p-3 shadow summary-box">
 
 <h6 class="text-muted">PRICE DETAILS</h6>
@@ -137,14 +141,16 @@ Proceed to Checkout
 <script src="js/config.js"></script>
 
 <script>
+
+const API = API_URL.replace(/\/+$/, "");
 const token = localStorage.getItem("token");
 
 let cartData = [];
 let total = 0;
-let discountPercent = 0;
+let discountPercent = localStorage.getItem("discountPercent") || 0;
 let coupons = [];
 
-// 🔔 TOAST
+/* ================= TOAST ================= */
 function showToast(msg){
     let t=document.createElement("div");
     t.className="toast-msg";
@@ -153,19 +159,34 @@ function showToast(msg){
     setTimeout(()=>t.remove(),2000);
 }
 
-// 📦 LOAD CART
-async function loadCart(){
-let res = await fetch(API_URL+"/cart",{
-headers:{Authorization:"Bearer "+token}
-});
-let data = await res.json();
+/* ================= IMAGE FIX (IMPORTANT) ================= */
+function getImageUrl(img){
 
+    if(!img) return `${API}/uploads/default.png`;
+
+    img = img
+        .replace(/^\/+/, "")
+        .replace("static/uploads/", "")
+        .replace("uploads/uploads/", "")
+        .replace("uploads/", "");
+
+    return `${API}/uploads/${img}`;
+}
+
+/* ================= LOAD CART ================= */
+async function loadCart(){
+
+let res = await fetch(`${API}/cart`, {
+    headers:{ Authorization:"Bearer " + token }
+});
+
+let data = await res.json();
 cartData = data || [];
 
-if(cartData.length===0){
-cartItems.innerHTML="<h5 class='text-center'>Cart empty</h5>";
-updateSummary(0);
-return;
+if(cartData.length === 0){
+    cartItems.innerHTML = "<h5 class='text-center'>Cart empty 😢</h5>";
+    updateSummary(0);
+    return;
 }
 
 let out="";
@@ -174,47 +195,59 @@ let count=0;
 
 cartData.forEach(item=>{
 
-let id = item.cart_id; // ✅ correct
+    let id = item.cart_id;
 
-let sub=item.price*item.quantity;
-total+=sub;
-count+=item.quantity;
+    let sub = item.price * item.quantity;
+    total += sub;
+    count += item.quantity;
 
-out+=`
-<div class="cart-card mb-3">
-<div class="d-flex gap-3">
+    let unit = item.unit ? ` / ${item.unit}` : " / kg";
 
-<img src="${API_URL+item.image}" class="product-img">
+    let img = getImageUrl(item.image);
 
-<div class="flex-grow-1">
-<h6>${item.name}</h6>
-<p>₹${item.price}</p>
+    out += `
+    <div class="cart-card mb-3">
+        <div class="d-flex gap-3">
 
-<button onclick="updateQty(${id},${item.quantity-1})">-</button>
-${item.quantity}
-<button onclick="updateQty(${id},${item.quantity+1})">+</button>
-</div>
+            <img src="${img}" class="product-img"
+                 onerror="this.src='${API}/uploads/default.png'">
 
-<div>
-₹${sub}
-<br>
-<button class="btn btn-danger btn-sm mt-2" onclick="removeItem(${id})">
-Remove
-</button>
-</div>
+            <div class="flex-grow-1">
+                <h6>${item.name}</h6>
+                <p class="fw-bold">₹${item.price}${unit}</p>
 
-</div>
-</div>`;
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary qty-btn"
+                        onclick="updateQty(${id}, ${item.quantity-1})">-</button>
+
+                    <span>${item.quantity}</span>
+
+                    <button class="btn btn-outline-secondary qty-btn"
+                        onclick="updateQty(${id}, ${item.quantity+1})">+</button>
+                </div>
+            </div>
+
+            <div class="text-end">
+                <b>₹${sub.toFixed(2)}</b>
+                <br>
+                <button class="btn btn-danger btn-sm mt-2"
+                    onclick="removeItem(${id})">
+                    Remove
+                </button>
+            </div>
+
+        </div>
+    </div>`;
 });
 
-cartItems.innerHTML=out;
+cartItems.innerHTML = out;
 updateSummary(count);
 loadCoupons();
 }
 
-// 🎟 COUPONS
+/* ================= COUPONS ================= */
 async function loadCoupons(){
-let res = await fetch(API_URL+"/coupons");
+let res = await fetch(`${API}/coupons`);
 coupons = await res.json();
 
 let best = coupons
@@ -230,10 +263,10 @@ bestCoupon.classList.remove("d-none");
 }
 }
 
-// APPLY
+/* ================= APPLY COUPON ================= */
 function applyCoupon(){
-let code=document.getElementById("coupon").value.trim();
 
+let code=document.getElementById("coupon").value.trim();
 let c=coupons.find(x=>x.code===code);
 
 if(!c) return showToast("Invalid ❌");
@@ -245,13 +278,13 @@ updateSummary();
 showToast("Applied ✅");
 }
 
-// AUTO APPLY
+/* ================= BEST COUPON ================= */
 function useBest(code){
 document.getElementById("coupon").value=code;
 applyCoupon();
 }
 
-// REMOVE
+/* ================= REMOVE COUPON ================= */
 function removeCoupon(){
 discountPercent=0;
 localStorage.removeItem("discountPercent");
@@ -260,23 +293,22 @@ updateSummary();
 showToast("Removed ❌");
 }
 
-// SUMMARY
+/* ================= SUMMARY ================= */
 function updateSummary(count=0){
+
 let discount=(total*discountPercent)/100;
 
 itemsCount.innerText=count;
-document.getElementById("total").innerText=total;
+document.getElementById("total").innerText=total.toFixed(2);
 document.getElementById("discount").innerText=discount.toFixed(2);
 document.getElementById("finalTotal").innerText=(total-discount).toFixed(2);
 }
 
-// UPDATE QTY
+/* ================= UPDATE QTY ================= */
 async function updateQty(id,qty){
-if(!id) return showToast("Invalid ❌");
-
 if(qty<1) return removeItem(id);
 
-await fetch(API_URL+"/cart/"+id,{
+await fetch(`${API}/cart/${id}`,{
 method:"PUT",
 headers:{
 Authorization:"Bearer "+token,
@@ -288,11 +320,10 @@ body:JSON.stringify({quantity:qty})
 loadCart();
 }
 
-// REMOVE ITEM
+/* ================= REMOVE ITEM ================= */
 async function removeItem(id){
-if(!id) return showToast("Invalid ❌");
 
-await fetch(API_URL+"/cart/"+id,{
+await fetch(`${API}/cart/${id}`,{
 method:"DELETE",
 headers:{Authorization:"Bearer "+token}
 });
@@ -300,14 +331,15 @@ headers:{Authorization:"Bearer "+token}
 loadCart();
 }
 
-// CHECKOUT
+/* ================= CHECKOUT ================= */
 function goCheckout(){
-    localStorage.setItem("discountPercent", discountPercent);
+localStorage.setItem("discountPercent", discountPercent);
 location.href="checkout.html";
 }
 
-// INIT
+/* ================= INIT ================= */
 loadCart();
+
 </script>
 
 </body>

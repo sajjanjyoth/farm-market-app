@@ -1,12 +1,16 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
-import shutil, os, uuid
+import shutil, os, uuid, json
 from database import get_db
 from middleware.auth import get_current_user
 
 router = APIRouter()
 
-UPLOAD_DIR = "uploads"
+# =========================
+# 🔥 UPLOAD DIR (FIXED)
+# =========================
+UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 # =========================
 # ✅ ADD PRODUCT
@@ -17,117 +21,193 @@ def add_product(
     price: float = Form(...),
     category: str = Form(...),
     description: str = Form(""),
-    image: UploadFile = File(...),
+    variants: str = Form("[]"),
+    image: UploadFile = File(None),
+    db=Depends(get_db),
     user=Depends(get_current_user)
 ):
-    db = get_db()
     cur = db.cursor()
 
     try:
-        ext = image.filename.split(".")[-1]
-        filename = f"{uuid.uuid4()}.{ext}"
-        path = os.path.join(UPLOAD_DIR, filename)
+        image_path = None
 
-        with open(path, "wb") as f:
-            shutil.copyfileobj(image.file, f)
+        # ================= IMAGE UPLOAD FIX =================
+        if image:
+            ext = image.filename.split(".")[-1]
+            filename = f"{uuid.uuid4()}.{ext}"
+            file_path = os.path.join(UPLOAD_DIR, filename)
 
+            with open(file_path, "wb") as f:
+                shutil.copyfileobj(image.file, f)
+
+            # 🔥 STORE ONLY RELATIVE PATH (IMPORTANT FIX)
+            image_path = f"{filename}"
+
+        # ================= INSERT PRODUCT =================
         cur.execute("""
-            INSERT INTO products(name, price, category, description, image, user_id)
-            VALUES(%s,%s,%s,%s,%s,%s)
-        """, (name, price, category, description, "/uploads/" + filename, user["id"]))
+            INSERT INTO products
+            (name, price, category, description, image, user_id)
+            VALUES (%s,%s,%s,%s,%s,%s)
+        """, (name, price, category, description, image_path, user["id"]))
+
+        product_id = cur.lastrowid
+
+        # ================= VARIANTS SAFE PARSE =================
+        try:
+            variants_data = json.loads(variants)
+        except:
+            variants_data = []
+
+        for v in variants_data:
+            cur.execute("""
+                INSERT INTO variants(product_id, qty, unit, price)
+                VALUES (%s,%s,%s,%s)
+            """, (
+                product_id,
+                v.get("qty", 0),
+                v.get("unit", "kg"),
+                v.get("price", price)
+            ))
 
         db.commit()
-
         return {"msg": "Product added successfully"}
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        print("❌ ADD PRODUCT ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error adding product")
 
 
 # =========================
 # ✅ GET ALL PRODUCTS
 # =========================
 @router.get("/products")
-def get_products():
-    db = get_db()
+def get_products(db=Depends(get_db)):
     cur = db.cursor(dictionary=True)
 
-    cur.execute("SELECT * FROM products")
-    products = cur.fetchall()
-
-    for p in products:
+    try:
         cur.execute("""
-            SELECT qty, unit, price 
-            FROM variants 
-            WHERE product_id=%s
-        """, (p["id"],))
-        p["variants"] = cur.fetchall()
+            SELECT p.*,
+                   u.id AS farmer_id,
+                   u.name AS farmer_name,
+                   u.location
+            FROM products p
+            LEFT JOIN users u ON p.user_id = u.id
+            ORDER BY p.id DESC
+        """)
 
-    return products
+        products = cur.fetchall()
+
+        # ================= VARIANTS =================
+        for p in products:
+            cur2 = db.cursor(dictionary=True)
+            cur2.execute("""
+                SELECT qty, unit, price
+                FROM variants
+                WHERE product_id=%s
+            """, (p["id"],))
+            p["variants"] = cur2.fetchall()
+
+        return products
+
+    except Exception as e:
+        print("❌ GET PRODUCTS ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error fetching products")
 
 
 # =========================
 # ✅ GET SINGLE PRODUCT
 # =========================
 @router.get("/products/{id}")
-def get_product(id: int):
-    db = get_db()
+def get_product(id: int, db=Depends(get_db)):
     cur = db.cursor(dictionary=True)
 
-    cur.execute("""
-        SELECT id, name, price, category, description, image
-        FROM products
-        WHERE id=%s
-    """, (id,))
-    
-    product = cur.fetchone()
+    try:
+        cur.execute("""
+            SELECT p.*,
+                   u.id AS farmer_id,
+                   u.name AS farmer_name,
+                   u.location
+            FROM products p
+            LEFT JOIN users u ON p.user_id = u.id
+            WHERE p.id=%s
+        """, (id,))
 
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        product = cur.fetchone()
 
-    cur.execute("""
-        SELECT qty, unit, price 
-        FROM variants 
-        WHERE product_id=%s
-    """, (id,))
-    
-    product["variants"] = cur.fetchall()
+        if not product:
+            raise HTTPException(status_code=404, detail="Product not found")
 
-    return product
+        cur2 = db.cursor(dictionary=True)
+        cur2.execute("""
+            SELECT qty, unit, price
+            FROM variants
+            WHERE product_id=%s
+        """, (id,))
+
+        product["variants"] = cur2.fetchall()
+
+        return product
+
+    except Exception as e:
+        print("❌ GET PRODUCT ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error fetching product")
 
 
 # =========================
-# ✅ DELETE PRODUCT
+# ✅ DELETE PRODUCT (FIXED IMAGE PATH)
 # =========================
 @router.delete("/products/{id}")
-def delete_product(id: int):
-    db = get_db()
-    cur = db.cursor()
+def delete_product(id: int, db=Depends(get_db)):
+    cur = db.cursor(dictionary=True)
 
-    cur.execute("DELETE FROM products WHERE id=%s", (id,))
-    db.commit()
+    try:
+        cur.execute("SELECT image FROM products WHERE id=%s", (id,))
+        product = cur.fetchone()
 
-    return {"msg": "Product deleted successfully"}
+        if not product:
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # 🔥 FIX IMAGE DELETE PATH
+        if product.get("image"):
+            file_path = os.path.join(UPLOAD_DIR, product["image"])
+            if os.path.exists(file_path):
+                os.remove(file_path)
+
+        cur.execute("DELETE FROM variants WHERE product_id=%s", (id,))
+        cur.execute("DELETE FROM products WHERE id=%s", (id,))
+
+        db.commit()
+        return {"msg": "Product deleted successfully"}
+
+    except Exception as e:
+        db.rollback()
+        print("❌ DELETE ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error deleting product")
 
 
 # =========================
 # ⭐ ADD REVIEW
 # =========================
 @router.post("/reviews")
-def add_review(data: dict):
-    db = get_db()
+def add_review(data: dict, db=Depends(get_db), user=Depends(get_current_user)):
     cur = db.cursor()
 
     try:
+        if not data.get("product_id") or not data.get("rating"):
+            raise HTTPException(status_code=400, detail="Missing fields")
+
+        if int(data["rating"]) < 1 or int(data["rating"]) > 5:
+            raise HTTPException(status_code=400, detail="Rating must be 1-5")
+
         cur.execute("""
             INSERT INTO reviews (product_id, user_id, rating, comment)
             VALUES (%s,%s,%s,%s)
         """, (
             data["product_id"],
-            data.get("user_id", 1),  # fallback if not sent
+            user["id"],
             data["rating"],
-            data["comment"]
+            data.get("comment", "")
         ))
 
         db.commit()
@@ -135,15 +215,15 @@ def add_review(data: dict):
 
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        print("❌ REVIEW ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error adding review")
 
 
 # =========================
-# ⭐ GET REVIEWS (FIXED)
+# ⭐ GET REVIEWS
 # =========================
 @router.get("/reviews/{product_id}")
-def get_reviews(product_id: int):
-    db = get_db()
+def get_reviews(product_id: int, db=Depends(get_db)):
     cur = db.cursor(dictionary=True)
 
     try:
@@ -156,10 +236,9 @@ def get_reviews(product_id: int):
             ORDER BY r.id DESC
         """, (product_id,))
 
-        data = cur.fetchall()
-
-        return data if data else []
+        return cur.fetchall()
 
     except Exception as e:
-        print("ERROR:", e)
-        return []
+        print("❌ GET REVIEWS ERROR:", e)
+        raise HTTPException(status_code=500, detail="Error fetching reviews")
+

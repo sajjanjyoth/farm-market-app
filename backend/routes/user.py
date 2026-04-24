@@ -112,3 +112,7 @@ def get_profile(user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="User not found")
 
     return data
+
+@router.get("/notifications")
+def get_notifications(user=Depends(get_current_user)):
+    return []

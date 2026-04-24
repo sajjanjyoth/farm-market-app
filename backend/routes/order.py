@@ -4,6 +4,7 @@ from middleware.auth import get_current_user
 
 router = APIRouter()
 
+VALID_STATUS = ["pending", "accepted", "shipped", "out for delivery", "delivered", "cancelled"]
 
 # =====================================================
 # 📦 CREATE ORDER
@@ -13,35 +14,30 @@ def create_order(data: dict, user=Depends(get_current_user)):
     cursor, db = get_cursor()
 
     items = data.get("items")
-
     if not items:
-        raise HTTPException(status_code=400, detail="Items required")
+        raise HTTPException(400, "Items required")
 
     total = 0
-    farmer_id = None
 
+    # CALCULATE TOTAL
     for item in items:
         product_id = item.get("product_id")
-        quantity = item.get("quantity", 0)
+        qty = item.get("quantity", 0)
 
-        if not product_id:
-            raise HTTPException(400, "Missing product_id")
-
-        if quantity <= 0:
-            raise HTTPException(400, "Invalid quantity")
+        if not product_id or qty <= 0:
+            raise HTTPException(400, "Invalid item")
 
         cursor.execute(
-            "SELECT price, user_id FROM products WHERE id=%s",
+            "SELECT name, price FROM products WHERE id=%s",
             (product_id,)
         )
         product = cursor.fetchone()
 
         if not product:
-            raise HTTPException(404, f"Product not found: {product_id}")
+            raise HTTPException(404, "Product not found")
 
-        total += product["price"] * quantity
-        farmer_id = product["user_id"]
-        print("DATA RECEIVED:", data)
+        total += product["price"] * qty
+
     # INSERT ORDER
     cursor.execute("""
         INSERT INTO orders (user_id, total, status, payment_status)
@@ -49,21 +45,29 @@ def create_order(data: dict, user=Depends(get_current_user)):
     """, (
         user["id"],
         total,
-        "Pending",
-        data.get("payment_status", "Paid")
+        "pending",
+        data.get("payment_status", "paid")
     ))
 
     order_id = cursor.lastrowid
 
     # INSERT ITEMS
     for item in items:
+        cursor.execute(
+            "SELECT name, price FROM products WHERE id=%s",
+            (item["product_id"],)
+        )
+        product = cursor.fetchone()
+
         cursor.execute("""
-            INSERT INTO order_items (order_id, product_id, quantity)
-            VALUES (%s, %s, %s)
+            INSERT INTO order_items (order_id, product_id, name, quantity, price)
+            VALUES (%s, %s, %s, %s, %s)
         """, (
             order_id,
             item["product_id"],
-            item["quantity"]
+            product["name"],
+            item["quantity"],
+            product["price"]
         ))
 
     db.commit()
@@ -72,7 +76,7 @@ def create_order(data: dict, user=Depends(get_current_user)):
 
 
 # =====================================================
-# 📄 GET ALL ORDERS
+# 📄 GET USER ORDERS
 # =====================================================
 @router.get("/orders")
 def get_orders(user=Depends(get_current_user)):
@@ -88,9 +92,45 @@ def get_orders(user=Depends(get_current_user)):
 
     for order in orders:
         cursor.execute("""
-            SELECT p.id AS product_id, p.name, p.image, oi.quantity
+            SELECT 
+                oi.product_id,
+                oi.name,
+                oi.quantity,
+                oi.price,
+                p.image
             FROM order_items oi
-            JOIN products p ON oi.product_id = p.id
+            LEFT JOIN products p ON oi.product_id = p.id
+            WHERE oi.order_id=%s
+        """, (order["id"],))
+
+        order["items"] = cursor.fetchall()
+
+    return orders
+
+
+# =====================================================
+# 📄 GET ALL ORDERS (ADMIN)
+# =====================================================
+@router.get("/admin/orders")
+def get_all_orders(user=Depends(get_current_user)):
+    cursor, _ = get_cursor()
+
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin access required")
+
+    cursor.execute("SELECT * FROM orders ORDER BY id DESC")
+    orders = cursor.fetchall()
+
+    for order in orders:
+        cursor.execute("""
+            SELECT 
+                oi.product_id,
+                oi.name,
+                oi.quantity,
+                oi.price,
+                p.image
+            FROM order_items oi
+            LEFT JOIN products p ON oi.product_id = p.id
             WHERE oi.order_id=%s
         """, (order["id"],))
 
@@ -117,15 +157,48 @@ def get_order(order_id: int, user=Depends(get_current_user)):
         raise HTTPException(404, "Order not found")
 
     cursor.execute("""
-        SELECT p.id AS product_id, p.name, p.image, oi.quantity
+        SELECT 
+            oi.product_id,
+            oi.name,
+            oi.quantity,
+            oi.price,
+            p.image
         FROM order_items oi
-        JOIN products p ON oi.product_id = p.id
+        LEFT JOIN products p ON oi.product_id = p.id
         WHERE oi.order_id=%s
     """, (order_id,))
 
     order["items"] = cursor.fetchall()
 
     return order
+
+
+# =====================================================
+# 🔄 UPDATE ORDER (ADMIN)
+# =====================================================
+@router.put("/orders/{order_id}")
+def update_order(order_id: int, data: dict, user=Depends(get_current_user)):
+    cursor, db = get_cursor()
+
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Only admin allowed")
+
+    status = data.get("status")
+
+    if status not in VALID_STATUS:
+        raise HTTPException(400, "Invalid status")
+
+    cursor.execute("SELECT id FROM orders WHERE id=%s", (order_id,))
+    if not cursor.fetchone():
+        raise HTTPException(404, "Order not found")
+
+    cursor.execute("""
+        UPDATE orders SET status=%s WHERE id=%s
+    """, (status, order_id))
+
+    db.commit()
+
+    return {"message": "Order updated successfully"}
 
 
 # =====================================================
@@ -145,12 +218,11 @@ def cancel_order(order_id: int, user=Depends(get_current_user)):
     if not order:
         raise HTTPException(404, "Order not found")
 
-    if order["status"] in ["Shipped", "Delivered", "Cancelled"]:
+    if order["status"] in ["shipped", "delivered", "cancelled"]:
         raise HTTPException(400, "Cannot cancel this order")
 
     cursor.execute("""
-        UPDATE orders
-        SET status='Cancelled'
+        UPDATE orders SET status='cancelled'
         WHERE id=%s
     """, (order_id,))
 

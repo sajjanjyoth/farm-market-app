@@ -101,7 +101,11 @@ Proceed to Payment
 <script>
 
 const token = localStorage.getItem("token");
+let gift = localStorage.getItem("giftCard");
 
+if(gift){
+    total = total - Number(gift);
+}
 let cart = [];
 let total = 0;
 

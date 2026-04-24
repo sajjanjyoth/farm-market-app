@@ -1,7 +1,7 @@
 -- =========================================
 -- CREATE DATABASE
 -- =========================================
-DROP DATABASE IF EXISTS farmers_market;
+
 CREATE DATABASE farmers_market;
 USE farmers_market;
 
@@ -155,3 +155,13 @@ CREATE TABLE variants (
     price FLOAT,
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 );
+ALTER TABLE order_items ADD COLUMN name VARCHAR(255);
+
+DESC order_items;
+
+UPDATE order_items oi
+JOIN products p ON oi.product_id = p.id
+SET 
+    oi.name = p.name,
+    oi.price = p.price
+WHERE oi.name IS NULL OR oi.price IS NULL;

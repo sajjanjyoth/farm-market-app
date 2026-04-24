@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Legal</title>
+
+<!-- BOOTSTRAP -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body {
+    background: #f1f3f6;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* HEADER */
+.header {
+    background: #198754;
+    color: white;
+    padding: 15px;
+    border-radius: 0 0 12px 12px;
+}
+
+/* CARD */
+.legal-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: 0.3s;
+}
+.legal-card:hover {
+    transform: translateY(-3px);
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header text-center position-relative">
+    <h4>📜 Legal Information</h4>
+    <button onclick="history.back()" 
+        class="btn btn-light btn-sm position-absolute top-50 start-0 translate-middle-y ms-3">
+        ← Back
+    </button>
+</div>
+
+<div class="container mt-3">
+
+    <!-- TERMS -->
+    <div class="card legal-card p-3 mb-3">
+        <h5>Terms & Conditions</h5>
+        <ul>
+            <li>All purchases are subject to product availability.</li>
+            <li>Prices may change without prior notice.</li>
+            <li>Users must provide accurate information while ordering.</li>
+            <li>Misuse of the platform may lead to account suspension.</li>
+        </ul>
+    </div>
+
+    <!-- PRIVACY -->
+    <div class="card legal-card p-3 mb-3">
+        <h5>Privacy Policy</h5>
+        <ul>
+            <li>Your personal data is kept secure and confidential.</li>
+            <li>We do not sell or share your data with third parties.</li>
+            <li>Information is used only to improve services.</li>
+            <li>Secure payment gateways are used for transactions.</li>
+        </ul>
+    </div>
+
+    <!-- REFUND -->
+    <div class="card legal-card p-3 mb-3">
+        <h5>Refund & Cancellation</h5>
+        <ul>
+            <li>Orders can be cancelled before dispatch.</li>
+            <li>Refunds are processed within 5–7 working days.</li>
+            <li>Damaged products can be replaced or refunded.</li>
+        </ul>
+    </div>
+
+    <!-- CONTACT -->
+    <div class="card legal-card p-3 mb-3">
+        <h5>Contact for Legal Queries</h5>
+        <p>Email: support@farmersmarket.com</p>
+        <p>Phone: +91-9876543210</p>
+    </div>
+
+</div>
+
+</body>
+</html>

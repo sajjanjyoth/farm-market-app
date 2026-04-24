@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>My Products</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f1f3f6; font-family:Segoe UI; }
+
+/* SIDEBAR */
+.sidebar{
+width:220px;
+height:100vh;
+background:#198754;
+color:white;
+position:fixed;
+padding:15px;
+}
+
+.sidebar a{
+display:block;
+color:white;
+padding:10px;
+text-decoration:none;
+border-radius:6px;
+margin-bottom:5px;
+}
+
+.sidebar a:hover{background:#157347;}
+
+.content{
+margin-left:230px;
+padding:20px;
+}
+
+/* CARD */
+.product-card{
+border-radius:14px;
+box-shadow:0 2px 8px rgba(0,0,0,0.08);
+padding:15px;
+background:white;
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:12px;
+transition:0.2s;
+}
+
+.product-card:hover{
+transform:translateY(-2px);
+box-shadow:0 4px 14px rgba(0,0,0,0.12);
+}
+
+.product-img{
+width:85px;
+height:85px;
+object-fit:cover;
+border-radius:10px;
+background:#eee;
+}
+
+.price{
+font-size:17px;
+font-weight:700;
+}
+
+.small{
+font-size:12px;
+color:gray;
+}
+
+/* BADGES */
+.badge{
+padding:4px 8px;
+border-radius:6px;
+font-size:12px;
+font-weight:600;
+}
+
+.low{background:#ffe5e5;color:#d9534f;}
+.fair{background:#e6f7e6;color:#28a745;}
+.high{background:#fff3cd;color:#f0ad4e;}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h4>🌾 Farmer</h4>
+<a href="farmer_profile.html">👤 Profile</a>
+<a href="add_product.html">➕ Add Product</a>
+<a href="my_products.html">📦 My Products</a>
+<a href="farmer_orders.html">📋 Orders</a>
+<a href="farmer_chat.html">💬 Chat</a>
+<a href="#" onclick="logout()">🚪 Logout</a>
+</div>
+
+<div class="content">
+
+<h3>📦 My Products</h3>
+
+<div class="d-flex gap-2 mb-3">
+
+<input id="search" class="form-control" placeholder="Search product...">
+
+<select id="category" class="form-select">
+<option value="">All Category</option>
+<option value="fruits">Fruits</option>
+<option value="vegetables">Vegetables</option>
+<option value="dairy">Dairy</option>
+<option value="grains">Grains</option>
+<option value="pulses">Pulses</option>
+<option value="spices">Spices</option>
+</select>
+
+<select id="sort" class="form-select">
+<option value="">Sort</option>
+<option value="low">Price Low → High</option>
+<option value="high">Price High → Low</option>
+</select>
+
+</div>
+
+<span id="count"></span>
+
+<div id="products"></div>
+
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+
+const API = API_URL.replace(/\/+$/, "");
+const token = localStorage.getItem("token");
+
+let allProducts = [];
+
+/* ✅ CORRECT BASE PATH */
+const IMAGE_BASE = `${API}/uploads/`;
+
+/* ✅ CLEAN IMAGE HANDLING */
+function getImageUrl(path){
+
+    if(!path) return IMAGE_BASE + "default.png";
+
+    if(path.startsWith("http")) return path;
+
+    // Only extract filename
+    const file = path.split("/").pop();
+
+    return IMAGE_BASE + file;
+}
+
+/* ================= LOAD ================= */
+async function loadProducts(){
+    try{
+        const res = await fetch(`${API}/farmer/my-products`,{
+            headers:{ Authorization:`Bearer ${token}` }
+        });
+
+        if(!res.ok) throw new Error();
+
+        const data = await res.json();
+        allProducts = Array.isArray(data) ? data : [];
+
+        filterProducts();
+
+    }catch{
+        document.getElementById("products").innerHTML =
+        `<div class="text-danger text-center p-4">Failed to load products ❌</div>`;
+    }
+}
+
+/* ================= FILTER ================= */
+function filterProducts(){
+
+    let list = [...allProducts];
+
+    const s = search.value.toLowerCase();
+    const c = category.value.toLowerCase();
+    const sortVal = sort.value;
+
+    list = list.filter(p =>
+        (!s || (p.name||"").toLowerCase().includes(s)) &&
+        (!c || (p.category||"").toLowerCase() === c)
+    );
+
+    if(sortVal === "low")
+        list.sort((a,b)=>a.price-b.price);
+
+    if(sortVal === "high")
+        list.sort((a,b)=>b.price-a.price);
+
+    document.getElementById("count").innerText =
+        `${list.length} products`;
+
+    render(list);
+}
+
+/* ================= SMART PRICE ================= */
+function getInsight(price, avg){
+
+    if(!avg) return {text:"No data", cls:"fair", suggestion:"-"};
+
+    const percent = ((price - avg) / avg) * 100;
+
+    if(percent < -20){
+        return {
+            text:"Underpriced 🔻",
+            cls:"low",
+            suggestion:`Try ₹${Math.round(avg)}`
+        };
+    }
+
+    if(percent > 20){
+        return {
+            text:"High Price 🔺",
+            cls:"high",
+            suggestion:`Reduce to ₹${Math.round(avg)}`
+        };
+    }
+
+    return {
+        text:"Good Price ✔",
+        cls:"fair",
+        suggestion:"Optimal"
+    };
+}
+
+/* ================= RENDER ================= */
+function render(list){
+
+    if(!list.length){
+        products.innerHTML =
+        `<div class="text-center text-muted p-4">No products found 😢</div>`;
+        return;
+    }
+
+    const avg = list.reduce((s,p)=>s+(p.price||0),0)/list.length;
+
+    products.innerHTML = list.map(p=>{
+
+        const i = getInsight(p.price, avg);
+
+        return `
+        <div class="product-card">
+
+            <div class="d-flex gap-3 align-items-center">
+
+                <img src="${getImageUrl(p.image)}"
+                     class="product-img"
+                     onerror="this.src='${IMAGE_BASE}default.png'">
+
+                <div>
+                    <b>${p.name}</b>
+                    <div class="small">${p.category||""}</div>
+                    <div class="price">₹${p.price}</div>
+
+                    <div class="badge ${i.cls}">${i.text}</div>
+                    <div class="small">Suggestion: ${i.suggestion}</div>
+                </div>
+
+            </div>
+
+            <div class="text-end">
+
+                <a href="edit_product.html?id=${p.id}"
+                   class="btn btn-warning btn-sm">
+                   Edit
+                </a>
+
+                <button class="btn btn-danger btn-sm"
+                    onclick="deleteProduct(${p.id})">
+                    Delete
+                </button>
+
+            </div>
+
+        </div>
+        `;
+    }).join("");
+}
+
+/* ================= DELETE ================= */
+async function deleteProduct(id){
+
+    if(!confirm("Delete product?")) return;
+
+    try{
+        const res = await fetch(`${API}/farmer/product/${id}`,{
+            method:"DELETE",
+            headers:{ Authorization:`Bearer ${token}` }
+        });
+
+        if(!res.ok){
+            alert("Delete failed ❌ (Check backend)");
+            return;
+        }
+
+        loadProducts();
+
+    }catch{
+        alert("Server error ❌");
+    }
+}
+
+/* ================= EVENTS ================= */
+search.oninput = filterProducts;
+category.onchange = filterProducts;
+sort.onchange = filterProducts;
+
+/* ================= LOGOUT ================= */
+function logout(){
+    localStorage.clear();
+    location.href="login.html";
+}
+
+loadProducts();
+
+</script>
+
+</body>
+</html>

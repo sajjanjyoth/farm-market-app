@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Edit Product</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body{background:#f5f6fa;font-family:Segoe UI;}
+
+.sidebar{
+width:220px;height:100vh;background:#198754;color:white;
+position:fixed;padding:15px;
+}
+
+.sidebar a{
+display:block;color:white;padding:10px;
+text-decoration:none;border-radius:6px;margin-bottom:5px;
+}
+
+.sidebar a:hover{background:#157347;}
+
+.content{margin-left:230px;padding:20px;}
+
+.card{
+border-radius:14px;
+box-shadow:0 6px 16px rgba(0,0,0,0.08);
+padding:20px;background:white;
+}
+
+.preview{
+width:140px;height:140px;
+object-fit:cover;border-radius:12px;
+background:#eee;margin-bottom:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="sidebar">
+<h4>🌾 Farmer</h4>
+<a href="farmer_profile.html">👤 Profile</a>
+<a href="add_product.html">➕ Add Product</a>
+<a href="my_products.html">📦 My Products</a>
+<a href="farmer_orders.html">📋 Orders</a>
+<a href="#" onclick="logout()">🚪 Logout</a>
+</div>
+
+<div class="content">
+
+<h3>✏️ Edit Product</h3>
+
+<div class="card">
+
+<img id="preview" class="preview">
+
+<input id="name" class="form-control mb-2" placeholder="Product Name">
+
+<input id="price" type="number" class="form-control mb-2" placeholder="Price ₹">
+
+<select id="category" class="form-select mb-2">
+<option value="">Select Category</option>
+<option>fruits</option>
+<option>vegetables</option>
+<option>dairy</option>
+<option>grains</option>
+<option>pulses</option>
+<option>spices</option>
+<option>flowers</option>
+<option>oil seeds</option>
+</select>
+
+<div class="d-flex gap-2">
+<textarea id="description" class="form-control mb-2" placeholder="Description"></textarea>
+<button onclick="generateAI()" class="btn btn-dark btn-sm">🤖 AI</button>
+</div>
+
+<input id="image" type="file" class="form-control mb-2">
+
+<button onclick="getLocation()" class="btn btn-outline-success mb-2">📍 Location</button>
+<p id="locText" class="text-muted small"></p>
+
+<button onclick="updateProduct()" class="btn btn-success w-100">
+Update Product
+</button>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+const API = API_URL.replace(/\/+$/, "");
+const token = localStorage.getItem("token");
+const id = new URLSearchParams(location.search).get("id");
+
+let lat=null, lng=null;
+
+const el = (id)=>document.getElementById(id);
+
+/* ================= IMAGE ================= */
+const IMAGE_BASE = `${API}/uploads/`;
+
+function getImageUrl(path){
+    if(!path) return IMAGE_BASE + "default.png";
+
+    return IMAGE_BASE + path
+        .replace("backend/uploads/","")
+        .replace("static/uploads/","")
+        .replace("uploads/","")
+        .replace(/^\/+/,"")
+        .replace(/\\/g,"/");
+}
+
+/* ================= LOAD ================= */
+async function loadProduct(){
+    try{
+        const res = await fetch(`${API}/farmer/my-products`,{
+            headers:{ Authorization:`Bearer ${token}` }
+        });
+
+        const list = await res.json();
+        const p = list.find(x => x.id == id);
+
+        if(!p){
+            alert("Product not found");
+            return;
+        }
+
+        el("name").value = p.name || "";
+        el("price").value = p.price || "";
+        el("category").value = p.category || "";
+        el("description").value = p.description || "";
+        el("preview").src = getImageUrl(p.image);
+
+    }catch{
+        alert("Failed to load product ❌");
+    }
+}
+
+/* ================= IMAGE PREVIEW ================= */
+el("image").addEventListener("change", e=>{
+    const file = e.target.files[0];
+    if(file){
+        el("preview").src = URL.createObjectURL(file);
+    }
+});
+
+/* ================= LOCATION ================= */
+function getLocation(){
+navigator.geolocation.getCurrentPosition(
+pos=>{
+lat=pos.coords.latitude;
+lng=pos.coords.longitude;
+el("locText").innerText="Location updated ✅";
+},
+()=>alert("Location denied")
+);
+}
+
+/* ================= AI ================= */
+async function generateAI(){
+
+    const name = el("name").value;
+    const category = el("category").value;
+
+    if(!name){
+        alert("Enter product name first");
+        return;
+    }
+
+    el("description").value="Generating...";
+
+    try{
+        const res = await fetch(`${API}/farmer/ai/generate-description`,{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                Authorization:`Bearer ${token}`
+            },
+            body:JSON.stringify({name, category})
+        });
+
+        const data = await res.json();
+        el("description").value = data.description || "";
+
+    }catch{
+        el("description").value=`Fresh ${name} farm product`;
+    }
+}
+
+/* ================= UPDATE ================= */
+async function updateProduct(){
+
+    if(!el("name").value || !el("price").value || !el("category").value){
+        alert("Fill all required fields ⚠️");
+        return;
+    }
+
+    const fd = new FormData();
+
+    fd.append("name", el("name").value);
+    fd.append("price", el("price").value);
+    fd.append("category", el("category").value);
+    fd.append("description", el("description").value);
+
+    if(el("image").files[0]){
+        fd.append("image", el("image").files[0]);
+    }
+
+    if(lat && lng){
+        fd.append("lat", lat);
+        fd.append("lng", lng);
+    }
+
+    try{
+        const res = await fetch(`${API}/farmer/product/${id}`,{
+            method:"PUT",
+            headers:{ Authorization:`Bearer ${token}` },
+            body:fd
+        });
+
+        const data = await res.json();
+
+        if(!res.ok){
+            alert(data.detail || "Update failed ❌");
+            return;
+        }
+
+        alert("Updated successfully ✅");
+        location.href="my_products.html";
+
+    }catch{
+        alert("Server error ❌");
+    }
+}
+
+/* ================= LOGOUT ================= */
+function logout(){
+    localStorage.clear();
+    location.href="login.html";
+}
+
+loadProduct();
+</script>
+
+</body>
+</html>

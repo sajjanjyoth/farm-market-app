@@ -1,39 +1,57 @@
-body{
-font-family:Arial;
-margin: 0;
-    background: #f5f5f5;
+/* RESET */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
+/* BODY */
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    color: #333;
+}
+
+/* HEADER */
 .header {
     background: #007b8f;
     color: white;
     padding: 15px;
     text-align: center;
     position: relative;
+    font-size: 20px;
+    font-weight: bold;
 }
 
+/* CART */
 .cart {
     position: absolute;
     right: 15px;
     top: 15px;
+    font-size: 20px;
+    cursor: pointer;
 }
 
 .cart span {
     background: red;
     color: white;
-    font-size: 12px;
-    padding: 2px 6px;
+    font-size: 11px;
+    padding: 3px 6px;
     border-radius: 50%;
     position: absolute;
     top: -8px;
     right: -10px;
 }
 
+/* PROFILE */
 .profile {
     display: flex;
     align-items: center;
+    gap: 12px;
     padding: 15px;
     background: white;
+    margin: 10px;
+    border-radius: 10px;
 }
 
 .avatar {
@@ -45,68 +63,88 @@ margin: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    font-weight: bold;
+    font-size: 18px;
 }
 
+/* ACCOUNT CONTAINER */
 .account-container {
     padding: 10px;
-    margin-bottom: 70px;
+    margin-bottom: 80px;
 }
 
+/* SECTION */
 .section {
     background: white;
     margin-bottom: 10px;
-    border-radius: 8px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
 }
 
+/* SECTION TITLE */
 .section-title {
     padding: 15px;
     font-weight: bold;
     cursor: pointer;
     background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: 0.2s;
 }
 
+.section-title:hover {
+    background: #e4e4e4;
+}
+
+/* SECTION CONTENT */
 .section-content {
     display: none;
 }
 
+/* ITEMS */
 .item {
     padding: 12px 15px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #eee;
+    cursor: pointer;
+    transition: 0.2s;
 }
 
+.item:hover {
+    background: #f7f7f7;
+    padding-left: 20px;
+}
+
+/* LOGOUT */
 .logout {
     color: red;
+    font-weight: bold;
 }
 
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    width: 100%;
-    background: white;
-    display: flex;
-    justify-content: space-around;
-    padding: 10px 0;
-    border-top: 1px solid #ccc;
-}
-.navbar{
-background:#198754;
-overflow: visible !important;
+/* NAVBAR */
+.navbar {
+    background: #198754;
+    overflow: visible !important;
 }
 
-.card{
-border-radius:12px;
-transition:0.3s;
+/* CARDS */
+.card {
+    border-radius: 12px;
+    transition: 0.3s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
 }
 
-.card:hover{
-transform:scale(1.05);
+.card:hover {
+    transform: scale(1.05);
 }
 
+/* PROFILE SECTION */
 #profileSection {
     display: none;
 }
 
-/* Dark transparent overlay */
+/* OVERLAY */
 .overlay {
     position: absolute;
     top: 0;
@@ -116,9 +154,99 @@ transform:scale(1.05);
     background: rgba(0,0,0,0.4);
 }
 
-/* Center text nicely */
+/* CAROUSEL TEXT */
 .carousel-caption {
     top: 50%;
     transform: translateY(-50%);
     bottom: auto;
+}
+
+/* CONTAINER */
+.container {
+    padding: 15px;
+}
+
+/* CARD CONTENT (FOR OTHER PAGES) */
+.card h4 {
+    margin-bottom: 5px;
+}
+
+.card p {
+    color: #666;
+}
+
+/* LIST */
+ul {
+    padding-left: 20px;
+    margin: 10px 0;
+}
+
+/* EMPTY MESSAGE */
+.empty {
+    text-align: center;
+    margin-top: 100px;
+    color: #888;
+}
+
+/* BUTTON */
+button {
+    cursor: pointer;
+    border: none;
+}
+
+/* BOTTOM NAV */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: white;
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    border-top: 1px solid #ccc;
+    z-index: 1000;
+}
+
+.bottom-nav div {
+    text-align: center;
+    font-size: 12px;
+    cursor: pointer;
+    color: #555;
+    transition: 0.2s;
+}
+
+.bottom-nav div:hover {
+    color: #007b8f;
+}
+
+.bottom-nav i {
+    font-size: 18px;
+    display: block;
+    margin-bottom: 2px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+
+    .header {
+        font-size: 18px;
+    }
+
+    .profile {
+        margin: 5px;
+        padding: 12px;
+    }
+
+    .avatar {
+        width: 45px;
+        height: 45px;
+    }
+
+    .item {
+        font-size: 14px;
+    }
+
+    .card {
+        font-size: 14px;
+    }
 }

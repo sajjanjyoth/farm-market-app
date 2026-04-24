@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Gift Store</title>
+
+<!-- BOOTSTRAP -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<!-- ICONS -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+body {
+    background: #f1f3f6;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* HEADER */
+.header {
+    background: #198754;
+    color: white;
+    padding: 15px;
+    border-radius: 0 0 12px 12px;
+    position: relative;
+}
+
+/* CARD */
+.gift-card {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    overflow: hidden;
+}
+.gift-card:hover {
+    transform: translateY(-6px);
+}
+
+/* IMAGE */
+.gift-img {
+    height: 180px;
+    object-fit: cover;
+}
+
+/* BUTTON */
+.btn-buy {
+    background: #198754;
+    color: white;
+    font-weight: 500;
+}
+.btn-buy:hover {
+    background: #157347;
+}
+
+/* TOAST */
+.toast-msg {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #198754;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 8px;
+    animation: fadeInOut 2s ease;
+}
+
+@keyframes fadeInOut {
+    0% { opacity: 0; transform: translateY(20px); }
+    20% { opacity: 1; transform: translateY(0); }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header text-center">
+    <button onclick="history.back()" 
+        class="btn btn-light btn-sm position-absolute top-50 start-0 translate-middle-y ms-3">
+        ← Back
+    </button>
+    <h4 class="m-0">🎁 Gift Store</h4>
+</div>
+
+<!-- PRODUCTS -->
+<div class="container mt-4">
+    <div class="row g-4">
+
+        <!-- ITEM 1 -->
+        <div class="col-md-4">
+            <div class="card gift-card">
+                <img src="https://cdn.pixabay.com/photo/2023/11/24/19/40/fruit-basket-8410566_1280.png"
+                     class="gift-img w-100" alt="Fruit Basket">
+
+                <div class="p-3">
+                    <h6 class="fw-bold">Fruit Basket</h6>
+                    <p class="text-muted small">Fresh seasonal fruits</p>
+                    <h5 class="text-success">₹499</h5>
+
+                    <button class="btn btn-buy w-100"
+                        onclick="addToCart('Fruit Basket',499)">
+                        <i class="bi bi-cart"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ITEM 2 -->
+        <div class="col-md-4">
+            <div class="card gift-card">
+                <img src="https://tse2.mm.bing.net/th/id/OIP.qIMnTRibgveVBeUXxEQwngHaE1?w=1024&h=669&rs=1&pid=ImgDetMain&o=7&rm=3"
+                     class="gift-img w-100" alt="Organic Combo">
+
+                <div class="p-3">
+                    <h6 class="fw-bold">Organic Combo</h6>
+                    <p class="text-muted small">Healthy farm products</p>
+                    <h5 class="text-success">₹799</h5>
+
+                    <button class="btn btn-buy w-100"
+                        onclick="addToCart('Organic Combo',799)">
+                        <i class="bi bi-cart"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ITEM 3 -->
+        <div class="col-md-4">
+            <div class="card gift-card">
+                <img src="https://tse4.mm.bing.net/th/id/OIP._0WAC8KQqv3GsZr_xW-xBAHaEK?rs=1&pid=ImgDetMain&o=7&rm=3"
+                     class="gift-img w-100" alt="Vegetable Basket">
+
+                <div class="p-3">
+                    <h6 class="fw-bold">Vegetable Basket</h6>
+                    <p class="text-muted small">Farm fresh vegetables</p>
+                    <h5 class="text-success">₹399</h5>
+
+                    <button class="btn btn-buy w-100"
+                        onclick="addToCart('Vegetable Basket',399)">
+                        <i class="bi bi-cart"></i> Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+// 🛒 ADD TO CART (with quantity handling)
+function addToCart(name, price){
+
+    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+    let existing = cart.find(item => item.name === name);
+
+    if(existing){
+        existing.qty += 1;
+    } else {
+        cart.push({ name, price, qty: 1 });
+    }
+
+    localStorage.setItem("cart", JSON.stringify(cart));
+
+    showToast("Added to cart 🛒");
+}
+
+// 🔔 TOAST MESSAGE
+function showToast(msg){
+    let t = document.createElement("div");
+    t.className = "toast-msg";
+    t.innerText = msg;
+
+    document.body.appendChild(t);
+
+    setTimeout(()=>t.remove(),2000);
+}
+
+</script>
+
+</body>
+</html>

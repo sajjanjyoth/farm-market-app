@@ -7,69 +7,42 @@
 <title>Track Order</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
-body { background:#f1f3f6; }
+body { background:#f1f3f6; font-family:Segoe UI; }
 
 .track-card {
-    background:white;
-    border-radius:12px;
-    padding:20px;
+background:white;border-radius:12px;padding:20px;
+box-shadow:0 2px 10px rgba(0,0,0,0.1);
 }
 
 .product-img {
-    width:80px;
-    height:80px;
-    object-fit:cover;
-    border-radius:8px;
+width:80px;height:80px;object-fit:cover;border-radius:8px;
 }
 
-.step-container {
-    display:flex;
-    justify-content:space-between;
-    margin-top:20px;
-}
-.step {
-    text-align:center;
-    flex:1;
-    position:relative;
-}
+.step-container { display:flex;justify-content:space-between;margin-top:25px; }
+.step { text-align:center;flex:1;position:relative; }
+
 .step::after {
-    content:"";
-    position:absolute;
-    top:15px;
-    right:-50%;
-    width:100%;
-    height:4px;
-    background:#ccc;
+content:"";position:absolute;top:15px;right:-50%;
+width:100%;height:4px;background:#ddd;
 }
 .step:last-child::after { display:none; }
 
 .circle {
-    width:30px;
-    height:30px;
-    border-radius:50%;
-    background:#ccc;
-    margin:auto;
-    line-height:30px;
-    color:white;
+width:32px;height:32px;border-radius:50%;
+background:#ccc;margin:auto;line-height:32px;
+color:white;font-size:14px;
 }
-.active .circle { background:#28a745; }
-.active span { color:#28a745; font-weight:bold; }
 
-#map {
-    height:300px;
-    border-radius:10px;
-    margin-top:20px;
-}
+.active .circle { background:#28a745; }
+.active span { color:#28a745;font-weight:bold; }
+
+#map { height:320px;border-radius:10px;margin-top:20px; }
 
 .otp-box input {
-    width:60px;
-    text-align:center;
-    font-size:20px;
+width:60px;text-align:center;font-size:20px;
 }
 </style>
 </head>
@@ -94,9 +67,28 @@ body { background:#f1f3f6; }
 const token = localStorage.getItem("token");
 const orderId = new URLSearchParams(location.search).get("id");
 
+/* ✅ IMAGE FIX */
+function getImage(img){
+
+    if(!img){
+        return API_URL + "/uploads/default.png";
+    }
+
+    if(img.startsWith("http")){
+        return img;
+    }
+
+    return API_URL + "/uploads/" + img
+        .replace("static/uploads/","")
+        .replace("backend/uploads/","")
+        .replace("uploads/","")
+        .replace(/^\/+/,"")
+        .replace(/\\/g,"/");
+}
+
 const steps = ["Pending","Accepted","Shipped","Out for Delivery","Delivered"];
 
-// ================= LOAD TRACKING =================
+/* ================= LOAD ================= */
 async function loadTracking(){
 try{
     const res = await fetch(API_URL + "/orders/" + orderId,{
@@ -107,18 +99,16 @@ try{
 
     const o = await res.json();
 
-    // ---------- FIX IMAGE PATH ----------
+    /* ---------- PRODUCTS ---------- */
     let itemsHTML="";
     (o.items || []).forEach(i=>{
-        let img = i.image
-            ? (i.image.startsWith("http")
-                ? i.image
-                : API_URL + "/" + i.image.replace(/^\/+/,'')) // FIX //
-            : "https://via.placeholder.com/80";
+        const img = getImage(i.image);
 
         itemsHTML += `
         <div class="d-flex align-items-center mb-3">
-            <img src="${img}" class="product-img me-3">
+            <img src="${img}" class="product-img me-3"
+            onerror="this.src='${API_URL}/uploads/default.png'">
+
             <div>
                 <div><strong>${i.name || "Product"}</strong></div>
                 <small>Qty: ${i.quantity}</small>
@@ -126,7 +116,7 @@ try{
         </div>`;
     });
 
-    // ---------- STEP ----------
+    /* ---------- STEPS ---------- */
     let current = steps.indexOf(o.status);
     if(current < 0) current = 0;
 
@@ -140,14 +130,12 @@ try{
     });
     stepHTML += `</div>`;
 
-    const eta = o.estimated_delivery || "Today, 6 PM";
-
     document.getElementById("tracking").innerHTML = `
-    <div class="track-card shadow-sm">
+    <div class="track-card">
 
         <h5>Order #${o.id}</h5>
         <p>Status: <strong>${o.status}</strong></p>
-        <p>Estimated Delivery: <strong>${eta}</strong></p>
+        <p>Estimated Delivery: <strong>${o.estimated_delivery || "Today"}</strong></p>
 
         <hr>
         ${itemsHTML}
@@ -159,83 +147,58 @@ try{
 
         <div id="map"></div>
 
-        ${o.status==="Out for Delivery" ? `
-        <div class="mt-4">
-            <h6>Enter OTP to confirm delivery</h6>
-            <div class="otp-box d-flex gap-2">
-                <input maxlength="1" class="form-control">
-                <input maxlength="1" class="form-control">
-                <input maxlength="1" class="form-control">
-                <input maxlength="1" class="form-control">
-            </div>
-            <button onclick="verifyOTP()" class="btn btn-success mt-3">
-                Confirm Delivery
-            </button>
-        </div>
-        ` : ""}
-
     </div>
     `;
 
     initMap();
 
-}catch(err){
+}catch{
     document.getElementById("tracking").innerHTML =
     "<h5 class='text-danger text-center'>Error loading ❌</h5>";
 }
 }
 
-// ================= MAP (LEAFLET) =================
+/* ================= MAP ================= */
 function initMap(){
 
-    const user = [12.9716, 77.5946];      // user location
-    const delivery = [12.9616, 77.5846];  // delivery boy
+    let userLat = 12.9716;
+    let userLon = 77.5946;
 
-    const map = L.map('map').setView(user, 13);
+    const map = L.map('map').setView([userLat, userLon], 13);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
-    }).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    // markers
-    L.marker(user).addTo(map).bindPopup("You 🧍");
-    const deliveryMarker = L.marker(delivery).addTo(map)
-        .bindPopup("Delivery 🚚");
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+            userLat = pos.coords.latitude;
+            userLon = pos.coords.longitude;
 
-    // route
-    L.polyline([user, delivery], { color:'green' }).addTo(map);
+            map.setView([userLat, userLon], 14);
 
-    // live movement (simulation)
+            L.marker([userLat, userLon]).addTo(map).bindPopup("You 🧍");
+
+            simulateDelivery(userLat, userLon, map);
+        }, ()=> simulateDelivery(userLat, userLon, map));
+    } else {
+        simulateDelivery(userLat, userLon, map);
+    }
+}
+
+/* ================= DELIVERY ================= */
+function simulateDelivery(userLat, userLon, map){
+
+    let lat = userLat + 0.02;
+    let lon = userLon + 0.02;
+
+    const marker = L.marker([lat, lon]).addTo(map).bindPopup("Delivery 🚚");
+
     setInterval(()=>{
-        delivery[0] += 0.0003;
-        delivery[1] += 0.0003;
-        deliveryMarker.setLatLng(delivery);
+        lat += (userLat - lat) * 0.05;
+        lon += (userLon - lon) * 0.05;
+        marker.setLatLng([lat, lon]);
     }, 2000);
 }
 
-// ================= OTP =================
-function verifyOTP(){
-    const inputs = document.querySelectorAll(".otp-box input");
-    let otp = "";
-
-    inputs.forEach(i=> otp += i.value);
-
-    if(otp.length !== 4){
-        alert("Enter valid OTP ❌");
-        return;
-    }
-
-    alert("Delivery Confirmed ✅");
-
-    fetch(API_URL + "/orders/"+orderId+"/confirm",{
-        method:"POST",
-        headers:{ Authorization:"Bearer "+token }
-    });
-
-    loadTracking();
-}
-
-// INIT
 loadTracking();
 </script>
 

@@ -9,226 +9,210 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
 <style>
-body { background:#f8f9fa; }
-.form-box {
-    background:white;
-    padding:25px;
-    border-radius:15px;
+body{background:#f5f6fa;}
+
+.sidebar{
+width:220px;height:100vh;background:#198754;color:white;
+position:fixed;padding:15px;
+}
+.sidebar a{
+display:block;color:white;padding:10px;
+text-decoration:none;border-radius:6px;margin-bottom:5px;
+}
+.sidebar a:hover{background:#157347;}
+
+.content{margin-left:230px;padding:20px;}
+
+.card{
+border-radius:12px;
+box-shadow:0 4px 8px rgba(0,0,0,0.08);
+}
+
+.preview{
+width:120px;height:120px;
+object-fit:cover;border-radius:10px;
+background:#eee;margin-bottom:10px;
 }
 </style>
 </head>
 
 <body>
 
-<div class="container mt-5">
-<div class="row justify-content-center">
-<div class="col-md-6">
-
-<div class="form-box shadow">
-
-<h4 class="mb-3">➕ Add Product</h4>
-
-<!-- NAME -->
-<input id="name" class="form-control mb-2" placeholder="Product Name">
-
-<!-- PRICE -->
-<input id="price" type="number" class="form-control mb-2" placeholder="Price ₹">
-
-<!-- CATEGORY -->
-<select id="category" class="form-select mb-2">
-<option value="">Select Category</option>
-<option>Fruits</option>
-<option>Vegetables</option>
-<option>Dairy</option>
-<option>Grains</option>
-<option>Pulses</option>
-<option>Cash Crop</option>
-<option>Flowers</option>
-</select>
-
-<div id="variants">
-  <div class="d-flex gap-2 mb-2">
-    <input type="number" class="form-control qty" placeholder="Quantity">
-    <select class="form-select unit">
-      <option value="kg">kg</option>
-      <option value="g">g</option>
-      <option value="litre">litre</option>
-      <option value="piece">piece</option>
-    </select>
-    <input type="number" class="form-control price" placeholder="Price ₹">
-  </div>
+<div class="sidebar">
+<h4>🌾 Farmer</h4>
+<a href="farmer_profile.html">👤 Profile</a>
+<a href="add_product.html">➕ Add Product</a>
+<a href="my_products.html">📦 My Products</a>
+<a href="farmer_orders.html">📋 Orders</a>
+<a href="#" onclick="logout()">🚪 Logout</a>
 </div>
 
-<button onclick="addVariant()" class="btn btn-sm btn-secondary mb-2">
-+ Add More
-</button>
+<div class="content">
 
-<!-- DESCRIPTION -->
+<h3>➕ Add Product</h3>
+
+<div class="card p-4">
+
+<img id="preview" class="preview">
+
+<input id="name" class="form-control mb-2" placeholder="Product Name">
+
+<input id="price" type="number" class="form-control mb-2" placeholder="Price ₹">
+
+<select id="category" class="form-select mb-2">
+<option value="">Select Category</option>
+<option value="fruits">Fruits</option>
+<option value="vegetables">Vegetables</option>
+<option value="dairy">Dairy</option>
+<option value="grains">Grains</option>
+<option value="pulses">Pulses</option>
+<option value="flowers">Flowers</option>
+<option value="spices">Spices</option>
+<option value="oil seeds">Oil Seeds</option>
+</select>
+
+<div class="d-flex gap-2">
 <textarea id="description" class="form-control mb-2" placeholder="Description"></textarea>
+<button onclick="generateAI()" class="btn btn-dark btn-sm">🤖</button>
+</div>
 
-<!-- IMAGE -->
 <input id="image" type="file" class="form-control mb-2">
 
-<!-- LOCATION -->
-<button onclick="getLocation()" class="btn btn-outline-success w-100 mb-2">
+<button onclick="getLocation()" class="btn btn-outline-success mb-2">
 📍 Get Location
 </button>
+<p id="locText" class="text-muted small"></p>
 
-<p id="locationText" class="text-muted small"></p>
-
-<!-- SUBMIT -->
 <button onclick="addProduct()" class="btn btn-success w-100">
 Add Product
 </button>
 
-</div>
-
-</div>
 </div>
 </div>
 
 <script src="js/config.js"></script>
 
 <script>
+const token = localStorage.getItem("token");
+if (!token) location.href = "login.html";
 
-let lat = null;
-let lng = null;
+let lat=null, lng=null;
 
-// =========================
-// 📍 GET LOCATION
-// =========================
-function getLocation() {
-    if (!navigator.geolocation) {
-        alert("Geolocation not supported ❌");
-        return;
+const el=id=>document.getElementById(id);
+
+/* ================= IMAGE PREVIEW ================= */
+el("image").addEventListener("change", e=>{
+    const file=e.target.files[0];
+    if(file){
+        el("preview").src=URL.createObjectURL(file);
     }
+});
 
-    navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            lat = pos.coords.latitude;
-            lng = pos.coords.longitude;
-
-            document.getElementById("locationText").innerText =
-                "Location captured ✅";
-        },
-        () => {
-            alert("Location access denied ❌");
+/* ================= AUTO AI ================= */
+let timer;
+el("name").addEventListener("input", ()=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+        if(el("name").value.length>2){
+            generateAI();
         }
-    );
+    },800);
+});
+
+/* ================= AI ================= */
+async function generateAI(){
+
+    const name=el("name").value;
+    const category=el("category").value;
+
+    if(!name) return;
+
+    el("description").value="Generating...";
+
+    try{
+        const res=await fetch(API_URL+"/farmer/ai/generate-description",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                Authorization:"Bearer "+token
+            },
+            body:JSON.stringify({name,category})
+        });
+
+        const data=await res.json();
+
+        el("description").value=data.description || 
+`Fresh ${name} sourced directly from farms.
+Naturally grown with care and rich in nutrients.
+Perfect for healthy daily consumption.`;
+
+    }catch{
+        el("description").value=`Fresh ${name} farm product`;
+    }
 }
 
-// =========================
-// ➕ ADD VARIANT
-// =========================
-function addVariant() {
-
-    let div = document.createElement("div");
-    div.className = "d-flex gap-2 mb-2";
-
-    div.innerHTML = `
-        <input type="number" class="form-control qty" placeholder="Quantity">
-        <select class="form-select unit">
-            <option value="kg">kg</option>
-            <option value="g">g</option>
-            <option value="litre">litre</option>
-            <option value="piece">piece</option>
-        </select>
-        <input type="number" class="form-control price" placeholder="Price ₹">
-    `;
-
-    document.getElementById("variants").appendChild(div);
+/* ================= LOCATION ================= */
+function getLocation(){
+navigator.geolocation.getCurrentPosition(
+pos=>{
+lat=pos.coords.latitude;
+lng=pos.coords.longitude;
+el("locText").innerText="Location captured ✅";
+},
+()=>alert("Location denied ❌")
+);
 }
 
-// =========================
-// 📦 ADD PRODUCT
-// =========================
-function addProduct() {
+/* ================= ADD PRODUCT ================= */
+async function addProduct(){
 
-    let name = document.getElementById("name").value.trim();
-    let price = document.getElementById("price").value;
-    let category = document.getElementById("category").value;
-    let description = document.getElementById("description").value.trim();
-    let imageInput = document.getElementById("image");
-    let image = imageInput ? imageInput.files[0] : null;
-
-    let token = localStorage.getItem("token");
-
-    // ✅ VALIDATION
-    if (!name || !price || !category) {
+    if(!el("name").value || !el("price").value || !el("category").value){
         alert("Fill all fields ❌");
         return;
     }
 
-    if (!token) {
-        alert("Login required ❌");
-        return;
+    const fd=new FormData();
+    fd.append("name",el("name").value);
+    fd.append("price",el("price").value);
+    fd.append("category",el("category").value);
+    fd.append("description",el("description").value);
+
+    if(el("image").files[0]){
+        fd.append("image",el("image").files[0]);
     }
 
-    // =========================
-    // 📊 GET VARIANTS
-    // =========================
-    let variants = [];
+    if(lat && lng){
+        fd.append("lat",lat);
+        fd.append("lng",lng);
+    }
 
-    document.querySelectorAll("#variants > div").forEach(v => {
+    try{
+        const res=await fetch(API_URL+"/farmer/add-product",{
+            method:"POST",
+            headers:{ Authorization:"Bearer "+token },
+            body:fd
+        });
 
-        let qty = v.querySelector(".qty")?.value;
-        let unit = v.querySelector(".unit")?.value;
-        let vprice = v.querySelector(".price")?.value;
+        const data=await res.json();
 
-        if (qty && vprice) {
-            variants.push({
-                qty: Number(qty),
-                unit: unit,
-                price: Number(vprice)
-            });
+        if(!res.ok){
+            alert(data.detail || "Error ❌");
+            return;
         }
-    });
 
-    // =========================
-    // 📦 FORM DATA
-    // =========================
-    let formData = new FormData();
+        alert("Product added ✅");
+        location.href="my_products.html";
 
-    formData.append("name", name);
-    formData.append("price", price);
-    formData.append("category", category);
-    formData.append("description", description);
-
-    if (lat && lng) {
-        formData.append("lat", lat);
-        formData.append("lng", lng);
+    }catch{
+        alert("Server error ❌");
     }
-
-    if (image) {
-        formData.append("image", image);
-    }
-
-    formData.append("variants", JSON.stringify(variants));
-
-    // =========================
-    // 🚀 API CALL
-    // =========================
-    fetch(API_URL + "/products", {
-        method: "POST",
-        headers: {
-            "Authorization": "Bearer " + token
-        },
-        body: formData
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Failed");
-        return res.json();
-    })
-    .then(() => {
-        alert("Product added successfully ✅");
-        window.location.href = "products.html";
-    })
-    .catch(err => {
-        console.error(err);
-        alert("Error adding product ❌");
-    });
 }
 
+/* ================= LOGOUT ================= */
+function logout(){
+    localStorage.clear();
+    location.href="login.html";
+}
 </script>
 
 </body>

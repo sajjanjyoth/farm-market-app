@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Farmer Profile</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background:#f5f6fa; }
+
+.sidebar{
+width:220px;
+height:100vh;
+background:#198754;
+color:white;
+position:fixed;
+padding:15px;
+}
+
+.sidebar a{
+display:block;
+color:white;
+padding:10px;
+text-decoration:none;
+border-radius:6px;
+margin-bottom:5px;
+}
+
+.sidebar a:hover{ background:#157347; }
+
+.content{
+margin-left:230px;
+padding:20px;
+}
+
+.card{
+border-radius:12px;
+box-shadow:0 4px 8px rgba(0,0,0,0.08);
+}
+
+.profile-img{
+width:120px;
+height:120px;
+border-radius:50%;
+object-fit:cover;
+background:#ddd;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+<h4>🌾 Farmer</h4>
+<a href="farmer_profile.html">👤 Profile</a>
+<a href="add_product.html">➕ Add Product</a>
+<a href="my_products.html">📦 My Products</a>
+<a href="farmer_orders.html">📋 Orders</a>
+<a href="farmer_chat.html">💬 Chat</a>
+<a href="#" onclick="logout()">🚪 Logout</a>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+<h3>👤 Farmer Profile</h3>
+
+<div class="row">
+
+<!-- LEFT -->
+<div class="col-md-4">
+<div class="card p-3 text-center">
+
+<img id="profilePic" class="profile-img mb-3"
+src="https://cdn-icons-png.flaticon.com/512/149/149071.png">
+
+<input type="file" id="profileInput" class="form-control mb-2">
+
+<button onclick="uploadImage()" class="btn btn-success btn-sm">
+Upload Image
+</button>
+
+<h5 id="nameText" class="mt-3"></h5>
+<p id="emailText" class="text-muted"></p>
+
+</div>
+</div>
+
+<!-- RIGHT -->
+<div class="col-md-8">
+<div class="card p-3">
+
+<h5>Personal Info</h5>
+
+<input id="name" class="form-control mb-2" placeholder="Name">
+<input id="email" class="form-control mb-2" placeholder="Email">
+<input id="address" class="form-control mb-2" placeholder="Location">
+
+<button onclick="updateProfile()" class="btn btn-success">
+Save Changes
+</button>
+
+</div>
+</div>
+
+</div>
+</div>
+
+<script src="js/config.js"></script>
+
+<script>
+const token = localStorage.getItem("token");
+
+if(!token){
+    alert("Login required ❌");
+    location.href="login.html";
+}
+
+// ================= SAFE IMAGE =================
+function img(path){
+    if(!path) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    if(path.startsWith("http")) return path;
+    return API_URL + "/" + path.replace(/^\/+/, '');
+}
+
+// ================= LOAD PROFILE =================
+async function load(){
+    try{
+        const res = await fetch(API_URL + "/farmer/profile", {
+            headers:{ Authorization:"Bearer " + token }
+        });
+
+        const text = await res.text();
+
+        let data;
+        try{
+            data = JSON.parse(text);
+        }catch(e){
+            console.error("Backend not JSON:", text);
+            alert("Server error ❌ Check backend");
+            return;
+        }
+
+        if(!res.ok){
+            alert(data.detail || "Failed to load ❌");
+            return;
+        }
+
+        // Fill form safely
+        document.getElementById("name").value = data.name || "";
+        document.getElementById("email").value = data.email || "";
+        document.getElementById("address").value = data.address || "";
+
+        document.getElementById("nameText").innerText = data.name || "Farmer";
+        document.getElementById("emailText").innerText = data.email || "";
+
+        document.getElementById("profilePic").src = img(data.profileImage);
+
+    }catch(err){
+        console.error(err);
+        alert("Network error ❌");
+    }
+}
+
+// ================= UPDATE PROFILE =================
+async function updateProfile(){
+    try{
+        const res = await fetch(API_URL + "/farmer/profile", {
+            method:"PUT",
+            headers:{
+                "Content-Type":"application/json",
+                Authorization:"Bearer " + token
+            },
+            body: JSON.stringify({
+                name:document.getElementById("name").value,
+                email:document.getElementById("email").value,
+                location:document.getElementById("address").value
+            })
+        });
+
+        if(!res.ok){
+            const t = await res.text();
+            console.error(t);
+            alert("Update failed ❌");
+            return;
+        }
+
+        alert("Profile updated ✅");
+        load();
+
+    }catch(err){
+        console.error(err);
+        alert("Error updating ❌");
+    }
+}
+
+// ================= UPLOAD IMAGE =================
+async function uploadImage(){
+    const file = document.getElementById("profileInput").files[0];
+
+    if(!file){
+        alert("Select image ❌");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append("image", file);
+
+    try{
+        const res = await fetch(API_URL + "/farmer/upload-profile", {
+            method:"POST",
+            headers:{ Authorization:"Bearer " + token },
+            body: fd
+        });
+
+        if(!res.ok){
+            const t = await res.text();
+            console.error(t);
+            alert("Upload failed ❌");
+            return;
+        }
+
+        alert("Image uploaded ✅");
+        load();
+
+    }catch(err){
+        console.error(err);
+        alert("Upload error ❌");
+    }
+}
+
+// ================= LOGOUT =================
+function logout(){
+    localStorage.clear();
+    location.href="login.html";
+}
+
+load();
+</script>
+
+</body>
+</html>

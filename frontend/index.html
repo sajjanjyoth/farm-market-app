@@ -176,6 +176,8 @@ z-index:9999;
             <div class="carousel-caption">
                 <h1>Good quality Spices</h1>
                 <p>Direct from farmers</p>
+                <a href="products.html" class="btn btn-success">Shop Now</a>
+
             </div>
         </div>
 
@@ -189,6 +191,8 @@ z-index:9999;
             <div class="carousel-caption">
                 <h1>Organic Cash Crops </h1>
                 <p>Healthy lifestyle</p>
+                <a href="products.html" class="btn btn-success">Shop Now</a>
+
             </div>
         </div>
 
@@ -250,7 +254,7 @@ z-index:9999;
 </a>
 </div>
 <div class="col-md-3">
-    <a href="products.html?category=grains" style="text-decoration:none; color:black;"></a>
+    <a href="products.html?category=grains" style="text-decoration:none; color:black;">
 
 <div class="card shadow border-0 h-100">
 <img src="static/grains.jpg" class="card-img-top" style="height:200px;object-fit:cover;">
@@ -388,7 +392,7 @@ document.addEventListener("DOMContentLoaded", function () {
         roleLabel = "🌾 Farmer";
         dropdown.innerHTML = `
             <div class="px-3 py-2 text-muted small">${roleLabel}</div>
-            <a href="farmer.html">Dashboard</a>
+            <a href="farmer_panel.html">Dashboard</a>
             <a href="#" id="logoutBtn">🚪 Logout</a>
         `;
     }
@@ -396,7 +400,7 @@ document.addEventListener("DOMContentLoaded", function () {
         roleLabel = "🛠 Admin";
         dropdown.innerHTML = `
             <div class="px-3 py-2 text-muted small">${roleLabel}</div>
-            <a href="admin-analytics.html">Admin Panel</a>
+            <a href="admin-panel.html">Admin Panel</a>
             <a href="#" id="logoutBtn">🚪 Logout</a>
         `;
     }
