@@ -183,36 +183,43 @@ function getImageUrl(path){
 
 /* ================= LOAD PRODUCT ================= */
 async function loadProduct(){
+    try{
+        const res = await fetch(`${API}/products/${id}`);
+        if(!res.ok) throw new Error("Product fetch failed");
 
-    const res = await fetch(`${API}/products/${id}`);
-    product = await res.json();
+        product = await res.json();
 
-    el("pImage").src = getImageUrl(product.image);
-    el("pName").innerText = product.name || "";
-    el("pDesc").innerText = product.description || "";
+        el("pImage").src = getImageUrl(product.image);
+        el("pName").innerText = product.name || "";
+        el("pDesc").innerText = product.description || "";
 
-    selectedPrice = product.price || 0;
-    selectedUnit = product.unit || "kg";
+        selectedPrice = product.price || 0;
+        selectedUnit = product.unit || "kg";
 
-    el("pPrice").innerText = selectedPrice;
-    el("pOldPrice").innerText = selectedPrice + 20;
-    el("pUnit").innerText = "per " + selectedUnit;
-    el("pricePerUnit").innerText = selectedPrice;
+        el("pPrice").innerText = selectedPrice;
+        el("pOldPrice").innerText = selectedPrice + 20;
+        el("pUnit").innerText = "per " + selectedUnit;
+        el("pricePerUnit").innerText = selectedPrice;
 
-    renderVariants(product.variants || []);
+        renderVariants(product.variants || []);
 
-    let stars = "";
-    for(let i=1;i<=5;i++){
-        stars += i <= (product.rating || 4) ? "★" : "☆";
+        let stars = "";
+        for(let i=1;i<=5;i++){
+            stars += i <= (product.rating || 4) ? "★" : "☆";
+        }
+        el("rating").innerHTML = `<span class="star">${stars}</span>`;
+
+        el("fName").innerText = product.farmer_name || "Local Farmer";
+        el("fLocation").innerText = product.location || "Nearby";
+
+        updateTotal();
+        loadReviews();
+        loadRelated();
+
+    }catch(err){
+        console.error(err);
+        alert("Failed to load product");
     }
-    el("rating").innerHTML = `<span class="star">${stars}</span>`;
-
-    el("fName").innerText = product.farmer_name || "Local Farmer";
-    el("fLocation").innerText = product.location || "Nearby";
-
-    updateTotal();
-    loadReviews();
-    loadRelated();
 }
 
 /* ================= VARIANTS ================= */
@@ -256,20 +263,32 @@ function updateTotal(){
 
 /* ================= CART ================= */
 async function addToCart(){
-    await fetch(`${API}/cart`,{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json",
-            "Authorization":"Bearer "+token
-        },
-        body:JSON.stringify({
-            product_id:product.id,
-            quantity:qty,
-            unit:selectedUnit
-        })
-    });
 
-    alert("Added to cart");
+    if(!token){
+        alert("Please login first");
+        return;
+    }
+
+    try{
+        const res = await fetch(`${API}/cart`,{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization":"Bearer "+token
+            },
+            body:JSON.stringify({
+                product_id:product.id,
+                quantity:qty,
+                unit:selectedUnit
+            })
+        });
+
+        if(!res.ok) throw new Error();
+        alert("Added to cart");
+
+    }catch(err){
+        alert("Cart failed");
+    }
 }
 
 /* ================= BUY ================= */
@@ -282,16 +301,32 @@ function buyNow(){
 
 /* ================= WISHLIST ================= */
 async function addWishlist(){
-    await fetch(`${API}/wishlist`,{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json",
-            "Authorization":"Bearer "+token
-        },
-        body:JSON.stringify({product_id:product.id})
-    });
 
-    alert("Added to wishlist");
+    if(!token){
+        alert("Please login first");
+        return;
+    }
+
+    try{
+        const res = await fetch(`${API}/wishlist`,{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization":"Bearer "+token
+            },
+            body:JSON.stringify({product_id:product.id})
+        });
+
+        if(!res.ok){
+            alert("Wishlist API not allowed (405) → fix backend");
+            return;
+        }
+
+        alert("Added to wishlist ❤️");
+
+    }catch(err){
+        alert("Wishlist failed");
+    }
 }
 
 /* ================= CHAT ================= */
@@ -302,69 +337,91 @@ function chatFarmer(){
 /* ================= REVIEWS ================= */
 async function submitReview(){
 
-    await fetch(`${API}/reviews`,{
-        method:"POST",
-        headers:{
-            "Content-Type":"application/json",
-            "Authorization":"Bearer "+token
-        },
-        body:JSON.stringify({
-            product_id:product.id,
-            rating:Number(el("userRating").value),
-            comment:el("userComment").value
-        })
-    });
+    if(!token){
+        alert("Login required");
+        return;
+    }
 
-    el("userComment").value="";
-    loadReviews();
+    try{
+        const res = await fetch(`${API}/reviews`,{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "Authorization":"Bearer "+token
+            },
+            body:JSON.stringify({
+                product_id:product.id,
+                rating:Number(el("userRating").value),
+                comment:el("userComment").value
+            })
+        });
+
+        if(!res.ok) throw new Error();
+
+        el("userComment").value="";
+        loadReviews();
+
+    }catch(err){
+        alert("Review failed");
+    }
 }
 
 async function loadReviews(){
 
-    const res = await fetch(`${API}/reviews/${id}`);
-    const data = await res.json();
+    try{
+        const res = await fetch(`${API}/reviews/${id}`);
+        const data = await res.json();
 
-    el("reviews").innerHTML = (data || []).map(r=>`
-        <div class="card p-2 mb-2">
-            <strong>${r.username || "User"}</strong>
-            <div>${"★".repeat(r.rating)}</div>
-            <p>${r.comment || ""}</p>
-        </div>
-    `).join("") || "<p>No reviews</p>";
+        el("reviews").innerHTML = (data || []).map(r=>`
+            <div class="card p-2 mb-2">
+                <strong>${r.username || "User"}</strong>
+                <div>${"★".repeat(r.rating)}</div>
+                <p>${r.comment || ""}</p>
+            </div>
+        `).join("") || "<p>No reviews</p>";
+
+    }catch{
+        el("reviews").innerHTML = "<p>Failed to load reviews</p>";
+    }
 }
 
 /* ================= RELATED ================= */
 async function loadRelated(){
 
-    const res = await fetch(`${API}/products`);
-    const data = await res.json();
+    try{
+        const res = await fetch(`${API}/products`);
+        const data = await res.json();
 
-    let all = Array.isArray(data) ? data : (data.products || []);
+        let all = Array.isArray(data) ? data : (data.products || []);
 
-    let similar = all.filter(p =>
-        p.category === product.category && p.id !== product.id
-    );
+        let similar = all.filter(p =>
+            p.category === product.category && p.id !== product.id
+        );
 
-    document.getElementById("related").innerHTML =
-        similar.slice(0,4).map(p=>`
-        <div class="col-md-3 mb-3">
-        <div class="card product-card position-relative">
+        document.getElementById("related").innerHTML =
+            similar.slice(0,4).map(p=>`
+            <div class="col-md-3 mb-3">
+            <div class="card product-card position-relative">
 
-        <span class="category-badge">${p.category||""}</span>
+            <span class="category-badge">${p.category||""}</span>
 
-        <img src="${getImageUrl(p.image)}" class="product-img-small w-100">
+            <img src="${getImageUrl(p.image)}" class="product-img-small w-100">
 
-        <div class="p-2">
-        <h6>${p.name}</h6>
-        <b>₹${p.price}</b>
+            <div class="p-2">
+            <h6>${p.name}</h6>
+            <b>₹${p.price}</b>
 
-        <a href="product-detail.html?id=${p.id}"
-           class="btn btn-success w-100 mt-2">View</a>
-        </div>
+            <a href="product-detail.html?id=${p.id}"
+               class="btn btn-success w-100 mt-2">View</a>
+            </div>
 
-        </div>
-        </div>
-        `).join("");
+            </div>
+            </div>
+            `).join("");
+
+    }catch{
+        console.log("Related products failed");
+    }
 }
 
 loadProduct();
