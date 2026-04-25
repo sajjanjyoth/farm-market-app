@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from database import get_db
 from middleware.auth import get_current_user
 
-router = APIRouter()
+router = APIRouter(prefix="/wishlist", tags=["Wishlist"])
+
 
 # =========================
 # ❤️ GET WISHLIST
 # =========================
-@router.get("/wishlist")
+@router.get("")
 def get_wishlist(user=Depends(get_current_user)):
 
     db = get_db()
@@ -41,10 +42,49 @@ def get_wishlist(user=Depends(get_current_user)):
 
 
 # =========================
-# ❤️ ADD WISHLIST
+# ❤️ ADD WISHLIST (BODY)
 # =========================
-@router.post("/wishlist/{product_id}")
-def add_wishlist(product_id: int, user=Depends(get_current_user)):
+@router.post("")
+def add_wishlist(data: dict, user=Depends(get_current_user)):
+
+    product_id = data.get("product_id")
+
+    if not product_id:
+        raise HTTPException(status_code=400, detail="product_id required")
+
+    db = get_db()
+    cur = db.cursor()
+
+    # check already exists
+    cur.execute("""
+        SELECT id FROM wishlist 
+        WHERE user_id=%s AND product_id=%s
+    """, (user["id"], product_id))
+
+    if cur.fetchone():
+        cur.close()
+        db.close()
+        return {"msg": "Already in wishlist ❤️"}
+
+    # insert
+    cur.execute("""
+        INSERT INTO wishlist (user_id, product_id)
+        VALUES (%s, %s)
+    """, (user["id"], product_id))
+
+    db.commit()
+
+    cur.close()
+    db.close()
+
+    return {"msg": "Added ❤️"}
+
+
+# =========================
+# ❤️ ADD WISHLIST (PATH) - optional support
+# =========================
+@router.post("/{product_id}")
+def add_wishlist_path(product_id: int, user=Depends(get_current_user)):
 
     db = get_db()
     cur = db.cursor()
@@ -75,7 +115,7 @@ def add_wishlist(product_id: int, user=Depends(get_current_user)):
 # =========================
 # ❌ REMOVE WISHLIST
 # =========================
-@router.delete("/wishlist/{product_id}")
+@router.delete("/{product_id}")
 def remove_wishlist(product_id: int, user=Depends(get_current_user)):
 
     db = get_db()
